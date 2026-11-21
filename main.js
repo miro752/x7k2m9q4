@@ -11,7 +11,7 @@ const { SearchManager } = await import(`./search-manager.js${_q}`);
 const { TurnController } = await import(`./turn-controller.js${_q}`);
 const { MoveInput } = await import(`./move-input.js${_q}`);
 const { BoardUI } = await import(`./board-ui.js${_q}`);
-const { playMoveSound } = await import(`./sound.js${_q}`);
+const { playMoveSound, playCaptureSound, playKingSound, playStartSound, playGameOverSound, getVolume, setVolume } = await import(`./sound.js${_q}`);
 const { TablebaseLoader, loadNNModelFile } = await import(`./tablebase-loader.js${_q}`);
 const { initGameStorage, pushGames, upsertGame, saveGame, getGames, setGames, deleteGame, deleteGames, clearGames, computeStats } = await import(`./game-storage.js${_q}`);
 await initGameStorage();
@@ -31,6 +31,7 @@ let tablebaseLoader = null;
 
 // Edit mode state
 let editMode = false;
+let probComputer = 'black';   // camp du moteur dans le mode Problème : 'black' | 'white' | 'none'
 let editPieceType = 'empty';  // 'empty', 'white-man', 'white-king', 'black-man', 'black-king'
 let editWhiteToMove = true;
 let editBoard = { white: 0, black: 0, kings: 0 };
@@ -264,6 +265,10 @@ function wireGameStateEvents() {
 
     gameState.addEventListener('gameOver', (e) => {
         const { winner, reason } = e.detail;
+        try {
+            const hc = turnController.humanColor;
+            playGameOverSound(winner === 'draw' ? 'draw' : (hc === 'both' || winner === hc) ? 'win' : 'loss');
+        } catch (err) {}
         showGameOver(winner, reason);
         updatePlayButton();
     });
@@ -385,19 +390,23 @@ function applyHighlights(highlights) {
  * Animate multi-jump moves step-by-step, then commit the move.
  */
 async function animateAndMakeMove(move, animate) {
+    const isCapture = !!(move.notation && String(move.notation).includes('x'));
+    const kingsBefore = bitCount(gameState.board.kings);
     if (animate && move.path && move.path.length > 2) {
         for (let i = 1; i < move.path.length; i++) {
             const partialPath = move.path.slice(0, i + 1);
             boardUI.setPartialPath(partialPath);
             boardUI.render();
-            playMoveSound();
+            playCaptureSound();
             await sleep(200);
         }
     } else {
-        playMoveSound();
+        if (isCapture) playCaptureSound(); else playMoveSound();
     }
     await gameState.makeMove(move);
+    try { if (bitCount(gameState.board.kings) > kingsBefore) setTimeout(playKingSound, 140); } catch (e) {}
 }
+
 
 function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
@@ -536,7 +545,7 @@ async function enterEditMode() {
         el.style.display = 'none';
     });
 
-    updateSideToMoveButtons();
+    updateSideToMoveButtons(); updateProbButtons();
     boardUI.setLegalMoves([]);
     boardUI.setSelected(null);
     updatePlayButton();
@@ -553,10 +562,8 @@ async function exitEditMode() {
     await gameState.setPosition(editBoard.white, editBoard.black, editBoard.kings, editWhiteToMove);
     turnController.autoPlay = savedAutoPlay;
 
-    // Set player assignments
-    if (turnController.humanColor !== 'both') {
-        turnController.setHumanColor(editWhiteToMove ? 'white' : 'black');
-    }
+    // Camp du moteur choisi dans le mode Problème
+    turnController.setHumanColor(probComputer === 'black' ? 'white' : probComputer === 'white' ? 'black' : 'both');
 
     document.getElementById('game-controls').style.display = 'flex';
     document.getElementById('edit-controls').style.display = 'none';
@@ -573,6 +580,14 @@ async function exitEditMode() {
     updateUndoRedoButtons();
     updateModeButtons();
     updatePlayButton();
+    // « Joueur joue » : si c'est au moteur de jouer, il joue tout de suite
+    if (turnController.autoPlay && probComputer !== 'none') { try { await turnController._evaluateTurn(); } catch (e) { console.warn(e); } }
+}
+
+function updateProbButtons() {
+    const o = document.getElementById('btn-prob-orient'), c = document.getElementById('btn-prob-comp');
+    if (o) o.textContent = boardUI && boardUI.flipped ? 'Blancs : Haut → Bas' : 'Blancs : Bas → Haut';
+    if (c) c.textContent = probComputer === 'black' ? 'Ordinateur noir' : probComputer === 'white' ? 'Ordinateur blanc' : "Pas d'ordinateur";
 }
 
 function getPieceAt(square) {
@@ -747,6 +762,7 @@ async function startNewGame(playAs) {
     const wasAuto = turnController.autoPlay, wasPonder = turnController.ponderEnabled;
     if (plies) { turnController.autoPlay = false; turnController.ponderEnabled = false; }
     await gameState.newGame();
+    playStartSound();
 
     if (playAs === 'white') {
         boardUI.setFlipped(false);
@@ -2923,6 +2939,21 @@ function setupEventHandlers() {
         window.location.reload();
     });
 
+    // Volume
+    const vol = document.getElementById('rng-volume');
+    if (vol) {
+        vol.value = Math.round(getVolume() * 100);
+        vol.addEventListener('input', () => setVolume(parseInt(vol.value, 10) / 100));
+        vol.addEventListener('change', () => { playCaptureSound(); });
+    }
+    // Aide
+    { const hb = document.getElementById('btn-help'), hd = document.getElementById('help-dialog');
+      if (hb && hd) {
+          hb.addEventListener('click', () => { hd.style.display = 'flex'; });
+          document.getElementById('btn-help-close').addEventListener('click', () => { hd.style.display = 'none'; });
+          hd.addEventListener('click', (e) => { if (e.target === hd) hd.style.display = 'none'; });
+      } }
+
     // Edit mode
     const editBtn = document.getElementById('btn-edit');
     if (editBtn) editBtn.addEventListener('click', enterEditMode);
@@ -2939,6 +2970,17 @@ function setupEventHandlers() {
     // Clear board
     const clearBtn = document.getElementById('btn-clear-board');
     if (clearBtn) clearBtn.addEventListener('click', clearEditBoard);
+
+    const fillBtn = document.getElementById('btn-fill-board');
+    if (fillBtn) fillBtn.addEventListener('click', () => {
+        editBoard = { white: 0x00000FFF, black: 0xFFF00000, kings: 0 };
+        editWhiteToMove = true; updateSideToMoveButtons();
+        boardUI.setPosition(editBoard.white, editBoard.black, editBoard.kings, editWhiteToMove);
+    });
+    const orientBtn = document.getElementById('btn-prob-orient');
+    if (orientBtn) orientBtn.addEventListener('click', () => { boardUI.setFlipped(!boardUI.flipped); updateProbButtons(); });
+    const compBtn = document.getElementById('btn-prob-comp');
+    if (compBtn) compBtn.addEventListener('click', () => { probComputer = probComputer === 'black' ? 'white' : probComputer === 'white' ? 'none' : 'black'; updateProbButtons(); });
 
     // Side to move
     const whiteToMoveBtn = document.getElementById('btn-white-to-move');

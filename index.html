@@ -35,6 +35,7 @@
         <header id="app-header" class="app-header">
             <button id="app-logo" class="app-logo" type="button" title="À propos de SAM_brk"><svg class="emblem" viewBox="0 0 64 64" aria-hidden="true"><defs><radialGradient id="emg" cx="35%" cy="30%" r="75%"><stop offset="0" stop-color="#6b3f1a"/><stop offset="1" stop-color="#2a1608"/></radialGradient><linearGradient id="emc" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe08a"/><stop offset="1" stop-color="#d18a1f"/></linearGradient></defs><circle cx="32" cy="32" r="29" fill="url(#emg)" stroke="url(#emc)" stroke-width="3"/><circle cx="32" cy="32" r="21" fill="none" stroke="#f0b25a" stroke-opacity=".55" stroke-width="1.5"/><path d="M16 40 L19 25 L26 33 L32 21 L38 33 L45 25 L48 40 Z" fill="url(#emc)" stroke="#8a5420" stroke-width="1.2" stroke-linejoin="round"/><rect x="16" y="41" width="32" height="5" rx="2" fill="url(#emc)" stroke="#8a5420" stroke-width="1.2"/></svg><span class="wordmark">SAM<span class="wm-u">_</span>brk</span></button>
             <span class="app-tag">Jeu de dames · analyse · base de parties</span>
+            <button id="btn-help" class="btn btn-small help-btn" type="button" title="Explications de toutes les fonctions">❓ Aide</button>
         </header>
         <!-- Main content -->
         <main class="main-content">
@@ -44,7 +45,7 @@
                 <div id="game-controls" class="game-toolbar">
                     <button id="btn-new-game" class="btn btn-small">Nouvelle partie</button>
                     <button id="btn-flip" class="btn btn-small">Retourner</button>
-                    <button id="btn-edit" class="btn btn-small">Modifier</button>
+                    <button id="btn-edit" class="btn btn-small" title="Composer une position (problème) et jouer à partir d'elle">Problème</button>
                     <button id="btn-play" class="btn btn-small btn-primary" disabled>Jouer !</button>
                     <button id="btn-stats" class="btn btn-small">Parties</button>
                     <button id="btn-ext" class="btn btn-small" title="Raccourci : R">Réflexion</button>
@@ -130,26 +131,21 @@
 
                 <!-- Edit mode controls (hidden by default) -->
                 <div id="edit-controls" class="control-group" style="display: none;">
-                    <h3>Modifier la position</h3>
-                    <div class="piece-selector">
-                        <button class="piece-btn active" data-piece="empty" title="Vide">
-                            <span class="piece-icon empty"></span>
-                        </button>
-                        <button class="piece-btn" data-piece="white-man" title="Pion blanc">
-                            <span class="piece-icon white-man"></span>
-                        </button>
-                        <button class="piece-btn" data-piece="white-king" title="Dame blanche">
-                            <span class="piece-icon white-king"></span>
-                        </button>
-                        <button class="piece-btn" data-piece="black-man" title="Pion noir">
-                            <span class="piece-icon black-man"></span>
-                        </button>
-                        <button class="piece-btn" data-piece="black-king" title="Dame noire">
-                            <span class="piece-icon black-king"></span>
-                        </button>
-                    </div>
-                    <div class="edit-actions">
-                        <button id="btn-clear-board" class="btn btn-small">Vider</button>
+                    <h3>Problème</h3>
+                    <div class="prob-grid">
+                        <div class="piece-selector prob-palette">
+                            <button class="piece-btn" data-piece="white-man" title="Pion blanc"><span class="piece-icon white-man"></span></button>
+                            <button class="piece-btn" data-piece="white-king" title="Dame blanche"><span class="piece-icon white-king"></span></button>
+                            <button class="piece-btn" data-piece="black-man" title="Pion noir"><span class="piece-icon black-man"></span></button>
+                            <button class="piece-btn" data-piece="black-king" title="Dame noire"><span class="piece-icon black-king"></span></button>
+                            <button class="piece-btn active" data-piece="empty" title="Case vide (efface)"><span class="piece-icon empty"></span></button>
+                        </div>
+                        <div class="prob-actions">
+                            <button id="btn-clear-board" class="btn btn-small">Vider le damier</button>
+                            <button id="btn-fill-board" class="btn btn-small">Remplir le damier</button>
+                            <button id="btn-prob-orient" class="btn btn-small">Blancs : Bas → Haut</button>
+                            <button id="btn-prob-comp" class="btn btn-small">Ordinateur noir</button>
+                        </div>
                     </div>
                     <div class="side-to-move">
                         <label>Trait :</label>
@@ -158,7 +154,7 @@
                             <button id="btn-black-to-move" class="toggle-btn">Noirs</button>
                         </div>
                     </div>
-                    <button id="btn-edit-done" class="btn btn-primary">Terminé</button>
+                    <button id="btn-edit-done" class="btn btn-primary">Joueur joue</button>
                 </div>
 
                 <!-- Engine controls -->
@@ -189,11 +185,12 @@
                     <h3>Options</h3>
                     <div class="options-list">
                         <label class="option-label">Langue : <select id="lang-select"><option value="fr">Français</option><option value="en">English</option><option value="es">Español</option><option value="ar">العربية</option></select></label>
-                        <label class="option-label"><input type="checkbox" id="chk-ponder"> Réfléchir en continu</label>
+                        <label class="option-label"><input type="checkbox" id="chk-ponder"> Analyse infinie</label>
                         <label class="option-label"><input type="checkbox" id="chk-autocapture" checked> Prise obligatoire automatique</label>
                         <label class="option-label"><input type="checkbox" id="chk-show-analysis"> Afficher l'analyse</label>
                         <label class="option-label"><input type="checkbox" id="chk-use-book" checked> Utiliser le livre d'ouvertures</label>
                         <label class="option-label"><input type="checkbox" id="chk-sound" checked> Son</label>
+                        <label class="option-label">Volume <input type="range" id="rng-volume" min="0" max="100" step="5" value="70" style="margin-left:8px;width:110px"></label>
                         <label class="option-label"><input type="checkbox" id="chk-autosave"> Enregistrer automatiquement les parties</label>
                         <label class="option-label">Blancs : <input type="text" id="inp-white-name" class="name-input" maxlength="40" placeholder="Nom (facultatif)"></label>
                         <label class="option-label">Noirs : <input type="text" id="inp-black-name" class="name-input" maxlength="40" placeholder="Nom (facultatif)"></label>
@@ -458,6 +455,41 @@
                 <button id="stats-pos" class="btn">Coups les plus joués depuis la position du damier</button>
                 <button id="stats-close" class="btn">Fermer</button>
             </div>
+        </div>
+    </div>
+
+
+    <!-- Aide -->
+    <div id="help-dialog" class="dialog" style="display: none;">
+        <div class="dialog-content dialog-wide help-content no-tr">
+            <h2>Aide — tout SAM_brk en un coup d'œil</h2>
+            <div class="help-body">
+                <details open><summary>Jouer une partie</summary>
+                    <p>Cliquez sur <b>Nouvelle partie</b>, choisissez l'ouverture, puis jouez avec les <b>Blancs</b>, les <b>Noirs</b>, ou <b>Les deux</b> (vous jouez les deux camps). Cliquez sur un pion puis sur sa case d'arrivée. Pour une prise multiple, cliquez les cases une à une. <b>Retourner</b> tourne le damier. Les flèches ⏪ ⏩ de la barre sous le damier reculent ou avancent dans la partie. <b>Partie sérieuse</b> (dans « Nouvelle partie ») enchaîne des parties contre le moteur avec un décompte V/N/D.</p></details>
+                <details><summary>Ouvertures au hasard (2 ou 3 coups)</summary>
+                    <p>Dans « Nouvelle partie », « Au hasard : 2 coups » tire l'une des <b>43</b> ouvertures officielles à 2 coups, et « Au hasard : 3 coups » l'une des <b>238</b> ouvertures officielles à 3 coups. Les coups sont joués automatiquement, puis la partie commence.</p></details>
+                <details><summary>Le moteur et l'analyse</summary>
+                    <p><b>Jouer !</b> demande au moteur de jouer. Les boutons <b>Moteur blancs / Moteur noirs / 2 joueurs</b> choisissent qui joue chaque camp. Le temps par coup se règle en cliquant sur « +3s/coup ». <b>Afficher l'analyse</b> montre l'évaluation et la meilleure suite, avec une flèche verte sur le damier. <b>Analyse infinie</b> (option) fait réfléchir le moteur sans limite de temps pendant que vous réfléchissez. <b>Réflexion</b> (touche R) analyse tous les coups possibles et les classe. <b>Apprendre de cette partie</b> repère vos erreurs et celles du moteur et s'en souvient pour la suite.</p></details>
+                <details><summary>Horloges</summary>
+                    <p>Cliquez sur l'horloge pour choisir : <b>sans limite</b>, <b>temps normal</b> (total + ajout par coup), <b>tournoi</b> (temps donné pour un nombre de coups) ou <b>temps fixe par coup</b> pour le moteur. Quand le temps tombe à zéro, la partie est perdue au temps.</p></details>
+                <details><summary>Problème (composer une position)</summary>
+                    <p>Le bouton <b>Problème</b> ouvre la palette : pion blanc, dame blanche, pion noir, dame noire, case vide. Choisissez une pièce, puis cliquez les cases du damier. <b>Vider le damier</b> enlève tout, <b>Remplir le damier</b> remet la position de départ. <b>Blancs : Bas → Haut</b> retourne le damier. <b>Ordinateur noir / blanc / aucun</b> choisit le camp du moteur. Réglez le <b>Trait</b> (qui joue en premier), puis cliquez <b>Joueur joue</b> pour commencer à jouer depuis cette position.</p></details>
+                <details><summary>Enregistrer une partie, noms des joueurs</summary>
+                    <p>Rien n'est enregistré tout seul, sauf si vous cochez <b>Enregistrer automatiquement les parties</b> dans Options. Sinon, cliquez <b>💾 Enregistrer</b> quand vous voulez garder la partie ; le bouton devient « ✓ Enregistrée » et clignote à la fin d'une partie non enregistrée. Dans Options, remplissez <b>Blancs</b> et <b>Noirs</b> pour les noms des joueurs.</p></details>
+                <details><summary>Base de parties (bouton « Parties »)</summary>
+                    <p>Vos parties sont rangées dans des <b>bases</b> (créer, renommer, supprimer). Vous pouvez : chercher par <b>joueur</b>, par texte ou par <b>coups</b> ; chercher la <b>position du damier</b> ; <b>filtrer</b> par résultat, par dates, par ouverture ; <b>trier</b> la liste ; <b>Regarder</b> une partie, l'<b>Analyser</b> ; <b>Modifier</b> les noms, le résultat, la date ; <b>Déplacer / Copier</b> et <b>Supprimer</b> plusieurs parties à la fois (Ctrl+clic, Maj+clic, ou le bouton ☑ Sélection multiple sur téléphone) ; voir les <b>Statistiques</b> ; <b>Importer</b> et <b>Exporter</b> en PDN ; faire une <b>Sauvegarde JSON</b> complète.</p></details>
+                <details><summary>Filmer la partie 🎥</summary>
+                    <p>Le bouton <b>🎥 Filmer</b> démarre un enregistrement vidéo du damier, des noms et des coups ; cliquez de nouveau pour arrêter. La vidéo se télécharge toute seule. Dans Options, cochez <b>Vidéo : ajouter la caméra</b> et/ou <b>le micro</b> pour vous ajouter dans la vidéo (le navigateur demande l'autorisation une fois).</p></details>
+                <details><summary>Couleurs et styles (🎨 Couleurs)</summary>
+                    <p>Le bouton <b>🎨 Couleurs</b> (en bas à droite) ouvre six onglets : <b>Skins</b> (thèmes en un clic), <b>Damier</b> (cases en bois ou marbre, cadre, numéros), <b>Pièces</b> (style et couleurs), <b>Fond</b> (bois, marbre, ardoise, feutre, nuit), <b>Flèches</b> (couleurs et épaisseur), <b>Affichage</b> (taille du damier). <b>🔍 Agrandir</b> masque les panneaux pour un grand damier. « Tout remettre par défaut » revient au look d'origine.</p></details>
+                <details><summary>Sons</summary>
+                    <p>Des sons accompagnent les coups, les prises, les promotions en dame, le début et la fin de partie. Cochez ou décochez <b>Son</b> et réglez le <b>Volume</b> dans Options.</p></details>
+                <details><summary>Raccourcis clavier</summary>
+                    <p><b>B, N, J</b> : modes (moteur blancs, moteur noirs, deux joueurs) · <b>← →</b> : coup précédent / suivant · <b>Début / Fin</b> : début / fin de la partie · <b>Espace</b> : revoir la partie · <b>R</b> : réflexion sur tous les coups.</p></details>
+                <details><summary>Hors ligne, mise à jour, sauvegarde</summary>
+                    <p>SAM_brk fonctionne sans connexion une fois chargé. Pour mettre à jour, remplacez les fichiers puis rechargez ; si l'ancienne version reste, fermez complètement l'application et rouvrez-la. Vos parties restent dans cet appareil : faites régulièrement une <b>Sauvegarde JSON</b> dans « Parties » pour les garder en sécurité ou les copier sur une autre machine (Importer).</p></details>
+            </div>
+            <div class="dialog-buttons" style="margin-top:.6rem"><button id="btn-help-close" class="btn btn-primary">Fermer</button></div>
         </div>
     </div>
 
