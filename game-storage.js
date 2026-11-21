@@ -114,6 +114,13 @@ export function deleteGame(id) {
     try { db.transaction(STORE, 'readwrite').objectStore(STORE).delete(id); } catch (e) { console.warn(e); }
 }
 
+export function deleteGames(ids) {
+    const set = new Set(ids);
+    cache = cache.filter(x => !set.has(x.id));
+    if (useLS) { lsSave(); return; }
+    try { const st = db.transaction(STORE, 'readwrite').objectStore(STORE); for (const id of set) st.delete(id); } catch (e) { console.warn(e); }
+}
+
 export function clearGames() {
     cache = [];
     if (useLS) { try { localStorage.removeItem(GAMES_KEY); } catch (e) {} return; }

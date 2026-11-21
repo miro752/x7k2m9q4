@@ -374,6 +374,13 @@
                 <button id="base-pos" class="btn btn-small" title="Trouve les parties qui passent par la position affichée sur le damier">Chercher la position du damier</button>
                 <button id="base-all" class="btn btn-small">Tout afficher</button>
             </div>
+            <div class="base-bar" id="base-filters">
+                <select id="flt-result" title="Filtrer par résultat"><option value="">Tous résultats</option><option value="white">1-0 (blancs gagnent)</option><option value="black">0-1 (noirs gagnent)</option><option value="draw">½ (nulle)</option></select>
+                <label class="flt-lbl">Du <input id="flt-from" type="date"></label>
+                <label class="flt-lbl">Au <input id="flt-to" type="date"></label>
+                <input id="flt-open" type="search" placeholder="Ouverture : commence par (ex. 9-13 23-19)" autocomplete="off">
+                <select id="flt-sort" title="Trier la liste"><option value="dateDesc">Tri : plus récentes</option><option value="dateAsc">Tri : plus anciennes</option><option value="movesDesc">Tri : plus longues</option><option value="movesAsc">Tri : plus courtes</option><option value="whiteAZ">Tri : blancs A-Z</option><option value="blackAZ">Tri : noirs A-Z</option><option value="result">Tri : résultat</option></select>
+            </div>
             <div class="match-stats">
                 <span class="stat-win">V : <span id="history-stat-w">0</span></span>
                 <span class="stat-draw">N : <span id="history-stat-d">0</span></span>
@@ -384,9 +391,15 @@
             <div class="history-buttons">
                 <button id="btn-history-watch" class="btn btn-primary" disabled>▶ Regarder</button>
                 <button id="btn-history-analyze" class="btn btn-primary" disabled>Analyser</button>
-                <button id="btn-history-info" class="btn" disabled>Infos</button>
-                <button id="btn-history-move" class="btn" disabled>Déplacer</button>
+                <button id="btn-history-info" class="btn" disabled>Modifier</button>
+                <button id="btn-history-move" class="btn" disabled>Déplacer / Copier</button>
                 <button id="btn-history-delete" class="btn btn-danger" disabled>Supprimer</button>
+            </div>
+            <div class="history-buttons">
+                <button id="btn-multi" class="btn">☑ Sélection multiple</button>
+                <button id="btn-selall" class="btn">Tout sélectionner</button>
+                <button id="btn-selnone" class="btn">Désélectionner</button>
+                <button id="btn-dbstats" class="btn btn-primary">Statistiques</button>
             </div>
             <div class="history-buttons">
                 <button id="base-import" class="btn">Importer (PDN / JSON)</button>
@@ -395,6 +408,56 @@
                 <button id="btn-history-close" class="btn">Fermer</button>
             </div>
             <input id="base-file" type="file" accept=".pdn,.txt,.json,text/*,application/*" style="display:none">
+        </div>
+    </div>
+
+
+    <!-- Modifier une partie -->
+    <div id="edit-dialog" class="dialog" style="display: none;">
+        <div class="dialog-content dialog-narrow">
+            <h2>Modifier la partie</h2>
+            <label class="dialog-label">Blancs</label>
+            <input id="ed-white" type="text" class="dialog-select" maxlength="60">
+            <label class="dialog-label">Noirs</label>
+            <input id="ed-black" type="text" class="dialog-select" maxlength="60">
+            <label class="dialog-label">Résultat</label>
+            <select id="ed-result" class="dialog-select"><option value="white">1-0 (les blancs gagnent)</option><option value="black">0-1 (les noirs gagnent)</option><option value="draw">½-½ (nulle)</option><option value="">* (inconnu / non terminée)</option></select>
+            <label class="dialog-label">Date</label>
+            <input id="ed-date" type="date" class="dialog-select">
+            <label class="dialog-label">Événement / commentaire</label>
+            <input id="ed-event" type="text" class="dialog-select" maxlength="120">
+            <div class="dialog-buttons" style="margin-top:.8rem">
+                <button id="ed-save" class="btn btn-primary">Enregistrer</button>
+                <button id="ed-cancel" class="btn">Annuler</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Déplacer / copier -->
+    <div id="move-dialog" class="dialog" style="display: none;">
+        <div class="dialog-content dialog-narrow">
+            <h2>Déplacer ou copier</h2>
+            <p id="mv-count" class="dialog-label"></p>
+            <label class="dialog-label">Vers la base :</label>
+            <select id="mv-base" class="dialog-select"></select>
+            <input id="mv-new" type="text" class="dialog-select" maxlength="60" placeholder="Nom de la nouvelle base" style="display:none;margin-top:.4rem">
+            <div class="dialog-buttons" style="margin-top:.8rem">
+                <button id="mv-move" class="btn btn-primary">Déplacer</button>
+                <button id="mv-copy" class="btn">Copier</button>
+                <button id="mv-cancel" class="btn">Annuler</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistiques -->
+    <div id="stats-dialog" class="dialog" style="display: none;">
+        <div class="dialog-content dialog-wide">
+            <h2>Statistiques</h2>
+            <div id="stats-body" class="stats-body"></div>
+            <div class="dialog-buttons" style="margin-top:.6rem">
+                <button id="stats-pos" class="btn">Coups les plus joués depuis la position du damier</button>
+                <button id="stats-close" class="btn">Fermer</button>
+            </div>
         </div>
     </div>
 

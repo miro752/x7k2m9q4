@@ -13,7 +13,7 @@ const { MoveInput } = await import(`./move-input.js${_q}`);
 const { BoardUI } = await import(`./board-ui.js${_q}`);
 const { playMoveSound } = await import(`./sound.js${_q}`);
 const { TablebaseLoader, loadNNModelFile } = await import(`./tablebase-loader.js${_q}`);
-const { initGameStorage, pushGames, upsertGame, saveGame, getGames, setGames, deleteGame, clearGames, computeStats } = await import(`./game-storage.js${_q}`);
+const { initGameStorage, pushGames, upsertGame, saveGame, getGames, setGames, deleteGame, deleteGames, clearGames, computeStats } = await import(`./game-storage.js${_q}`);
 await initGameStorage();
 const FG = await import(`./fastgame.js${_q}`);
 const I18N = await import(`./i18n.js${_q}`);
@@ -2053,6 +2053,9 @@ let baseQuery = '';
 let basePlayer = '';
 let baseFilter = null;          // Map id -> numéro du coup où la position apparaît
 let selectedGameId = null;
+const selIds = new Set();        // parties sélectionnées (sélection multiple)
+let lastClickedId = null, multiMode = false;
+let fltResult = '', fltFrom = '', fltTo = '', fltOpen = '', fltSort = 'dateDesc';
 let baseBusy = false;
 let shownCount = 200;
 const PAGE = 200;
@@ -2109,8 +2112,27 @@ function filteredGames() {
     const pq = normTxt(basePlayer).trim();
     if (pq) { const pt = pq.split(/\s+/); games = games.filter(g => { const t = playerText(g); return pt.every(x => t.includes(x)); }); }
     if (baseFilter) games = games.filter(g => baseFilter.has(g.id));
-    return games.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : b.id - a.id));
+    if (fltResult) games = games.filter(g => g.result === fltResult);
+    if (fltFrom || fltTo) {
+        const a = fltFrom ? Date.parse(fltFrom + 'T00:00:00') : -Infinity, b = fltTo ? Date.parse(fltTo + 'T23:59:59') : Infinity;
+        games = games.filter(g => { const t = Date.parse(g.date); return !isNaN(t) && t >= a && t <= b; });
+    }
+    const op = normMoves(fltOpen);
+    if (op) games = games.filter(g => !g.start && (g.ms === op || (g.ms || '').startsWith(op + ' ')));
+    const byDate = (a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : b.id - a.id);
+    const cmp = {
+        dateDesc: byDate,
+        dateAsc: (a, b) => -byDate(a, b),
+        movesDesc: (a, b) => nMoves(b) - nMoves(a),
+        movesAsc: (a, b) => nMoves(a) - nMoves(b),
+        whiteAZ: (a, b) => normTxt(a.white).localeCompare(normTxt(b.white)),
+        blackAZ: (a, b) => normTxt(a.black).localeCompare(normTxt(b.black)),
+        result: (a, b) => resRank(a.result) - resRank(b.result)
+    }[fltSort] || byDate;
+    return games.sort(cmp);
 }
+function normMoves(t) { return (t || '').trim().replace(/\s+/g, ' ').replace(/(^|[\s\-x])0+(\d)/g, '$1$2'); }
+function resRank(r) { return r === 'white' ? 0 : r === 'draw' ? 1 : r === 'black' ? 2 : 3; }
 
 function renderBase() {
     const sel = document.getElementById('base-select');
@@ -2137,7 +2159,7 @@ function renderBase() {
     if (!games.length) {
         const d = document.createElement('div');
         d.className = 'history-empty';
-        d.textContent = baseFilter || baseQuery || basePlayer ? 'Aucune partie ne correspond.' : 'Aucune partie dans cette base.';
+        d.textContent = baseFilter || baseQuery || basePlayer || fltResult || fltFrom || fltTo || fltOpen ? 'Aucune partie ne correspond.' : 'Aucune partie dans cette base.';
         listEl.appendChild(d);
     }
     const total = games.length;
@@ -2145,7 +2167,7 @@ function renderBase() {
         const d = new Date(g.date);
         const dateStr = isNaN(d) ? (g.date || '') : d.toLocaleDateString('fr', { day: 'numeric', month: 'short', year: '2-digit' });
         const row = document.createElement('div');
-        row.className = 'history-item' + (g.id === selectedGameId ? ' selected' : '');
+        row.className = 'history-item' + (selIds.has(g.id) ? ' selected' : '');
         row.dataset.id = g.id;
         const names = (g.white || g.black) ? `${g.white || '?'} – ${g.black || '?'}` : '';
         const mvl = g.ms ? g.ms.split(' ') : [];
@@ -2178,28 +2200,37 @@ function renderBase() {
 function showHistoryDialog() {
     const dialog = document.getElementById('history-dialog');
     if (!dialog) return;
-    selectedGameId = null;
+    selectedGameId = null; selIds.clear();
     baseFilter = null;
     baseQuery = '';
     basePlayer = '';
     shownCount = PAGE;
     document.getElementById('base-search').value = '';
     const bpl = document.getElementById('base-player'); if (bpl) bpl.value = '';
+    resetFilterUI();
     refreshPlayerList();
     setBaseStatus('');
     renderBase();
     dialog.style.display = 'flex';
 }
 
+function resetFilterUI() {
+    fltResult = ''; fltFrom = ''; fltTo = ''; fltOpen = ''; fltSort = 'dateDesc'; lastClickedId = null;
+    const set = (id, v) => { const e = document.getElementById(id); if (e) e.value = v; };
+    set('flt-result', ''); set('flt-from', ''); set('flt-to', ''); set('flt-open', ''); set('flt-sort', 'dateDesc');
+}
+
 function hideHistoryDialog() {
     const dialog = document.getElementById('history-dialog');
     if (dialog) dialog.style.display = 'none';
-    selectedGameId = null;
+    selectedGameId = null; selIds.clear();
 }
 
 function updateHistoryButtons() {
-    for (const id of ['btn-history-watch', 'btn-history-analyze', 'btn-history-delete', 'btn-history-info', 'btn-history-move'])
-        { const b = document.getElementById(id); if (b) b.disabled = !selectedGameId || baseBusy; }
+    const one = selIds.size === 1 && selectedGameId, many = selIds.size >= 1;
+    const set = (id, on) => { const b = document.getElementById(id); if (b) b.disabled = !on || baseBusy; };
+    set('btn-history-watch', one); set('btn-history-analyze', one); set('btn-history-info', one);
+    set('btn-history-move', many); set('btn-history-delete', many);
 }
 
 function selectedGame() { return getGames().find(g => g.id === selectedGameId); }
@@ -2360,18 +2391,44 @@ function setupHistoryDialogHandlers() {
     const dialog = document.getElementById('history-dialog');
     if (!dialog) return;
     const listEl = document.getElementById('history-list');
+    const paintSel = () => listEl.querySelectorAll('.history-item').forEach(el => el.classList.toggle('selected', selIds.has(parseInt(el.dataset.id))));
     listEl.addEventListener('click', (e) => {
         const item = e.target.closest('.history-item');
         if (!item) return;
-        listEl.querySelectorAll('.history-item.selected').forEach(el => el.classList.remove('selected'));
-        item.classList.add('selected');
-        selectedGameId = parseInt(item.dataset.id);
-        updateHistoryButtons();
+        const id = parseInt(item.dataset.id);
+        if (e.shiftKey && lastClickedId != null) {
+            const ids = [...listEl.querySelectorAll('.history-item')].map(x => parseInt(x.dataset.id));
+            const a = ids.indexOf(lastClickedId), b = ids.indexOf(id);
+            if (a >= 0 && b >= 0) for (let i = Math.min(a, b); i <= Math.max(a, b); i++) selIds.add(ids[i]);
+        } else if (e.ctrlKey || e.metaKey || multiMode) {
+            if (selIds.has(id)) selIds.delete(id); else selIds.add(id);
+        } else { selIds.clear(); selIds.add(id); }
+        lastClickedId = id;
+        selectedGameId = selIds.has(id) ? id : (selIds.size ? [...selIds][selIds.size - 1] : null);
+        paintSel(); updateHistoryButtons();
+        setBaseStatus(selIds.size > 1 ? `${selIds.size} parties sélectionnées.` : '');
     });
+    const rerender = () => { shownCount = PAGE; renderBase(); };
+    document.getElementById('flt-result').addEventListener('change', (e) => { fltResult = e.target.value; rerender(); });
+    document.getElementById('flt-from').addEventListener('change', (e) => { fltFrom = e.target.value; rerender(); });
+    document.getElementById('flt-to').addEventListener('change', (e) => { fltTo = e.target.value; rerender(); });
+    document.getElementById('flt-sort').addEventListener('change', (e) => { fltSort = e.target.value; rerender(); });
+    let _ft = null;
+    document.getElementById('flt-open').addEventListener('input', (e) => { fltOpen = e.target.value; clearTimeout(_ft); _ft = setTimeout(rerender, 300); });
+    document.getElementById('btn-multi').addEventListener('click', (e) => {
+        multiMode = !multiMode; e.currentTarget.classList.toggle('on', multiMode);
+        setBaseStatus(multiMode ? 'Sélection multiple : touchez les parties pour les cocher ou décocher.' : '');
+    });
+    document.getElementById('btn-selall').addEventListener('click', () => {
+        const all = filteredGames(); selIds.clear(); for (const g of all) selIds.add(g.id);
+        selectedGameId = all.length ? all[all.length - 1].id : null; renderBase();
+        setBaseStatus(`${selIds.size} partie(s) sélectionnée(s) (toutes celles de la liste filtrée).`);
+    });
+    document.getElementById('btn-selnone').addEventListener('click', () => { selIds.clear(); selectedGameId = null; renderBase(); setBaseStatus(''); });
     document.getElementById('btn-history-close').addEventListener('click', hideHistoryDialog);
     dialog.addEventListener('click', (e) => { if (e.target === dialog) hideHistoryDialog(); });
 
-    document.getElementById('base-select').addEventListener('change', (e) => { currentBase = e.target.value; baseFilter = null; selectedGameId = null; refreshPlayerList(); setBaseStatus(''); renderBase(); });
+    document.getElementById('base-select').addEventListener('change', (e) => { currentBase = e.target.value; baseFilter = null; selectedGameId = null; selIds.clear(); refreshPlayerList(); setBaseStatus(''); renderBase(); });
     document.getElementById('base-new').addEventListener('click', () => {
         const n = (prompt('Nom de la nouvelle base :') || '').trim();
         if (!n) return;
@@ -2394,13 +2451,13 @@ function setupHistoryDialogHandlers() {
         if (!confirm(`Supprimer la base « ${currentBase} » et ses ${cnt} partie(s) ?`)) return;
         setGames(getGames().filter(g => gameBase(g) !== currentBase));
         saveBases(getBases().filter(b => b !== currentBase));
-        currentBase = DEFAULT_BASE; baseFilter = null; selectedGameId = null; renderBase();
+        currentBase = DEFAULT_BASE; baseFilter = null; selectedGameId = null; selIds.clear(); renderBase();
     });
     let _dbt = null;
     document.getElementById('base-player').addEventListener('input', (e) => { basePlayer = e.target.value; shownCount = PAGE; clearTimeout(_dbt); _dbt = setTimeout(renderBase, 300); });
     document.getElementById('base-search').addEventListener('input', (e) => { baseQuery = e.target.value; shownCount = PAGE; clearTimeout(_dbt); _dbt = setTimeout(renderBase, 300); });
     document.getElementById('base-pos').addEventListener('click', searchPosition);
-    document.getElementById('base-all').addEventListener('click', () => { baseFilter = null; baseQuery = ''; basePlayer = ''; document.getElementById('base-player').value = ''; document.getElementById('base-search').value = ''; setBaseStatus(''); renderBase(); });
+    document.getElementById('base-all').addEventListener('click', () => { baseFilter = null; baseQuery = ''; basePlayer = ''; resetFilterUI(); document.getElementById('base-player').value = ''; document.getElementById('base-search').value = ''; setBaseStatus(''); renderBase(); });
     document.getElementById('base-import').addEventListener('click', () => document.getElementById('base-file').click());
     document.getElementById('base-file').addEventListener('change', async (e) => { const f = e.target.files[0]; e.target.value = ''; if (f) await importFile(f); });
     document.getElementById('base-export-pdn').addEventListener('click', () => {
@@ -2416,28 +2473,157 @@ function setupHistoryDialogHandlers() {
     });
 
     document.getElementById('btn-history-delete').addEventListener('click', () => {
-        if (!selectedGameId) return;
-        if (!confirm('Supprimer cette partie ?')) return;
-        deleteGame(selectedGameId);
-        selectedGameId = null;
-        renderBase();
+        if (!selIds.size) return;
+        const n = selIds.size;
+        if (!confirm(n === 1 ? 'Supprimer cette partie ?' : `Supprimer ces ${n} parties ?`)) return;
+        deleteGames([...selIds]);
+        selectedGameId = null; selIds.clear();
+        refreshPlayerList(); renderBase(); setBaseStatus(`${n} partie(s) supprimée(s).`);
     });
-    document.getElementById('btn-history-info').addEventListener('click', () => {
+
+    // ---- Modifier une partie ----
+    const $ = (id) => document.getElementById(id);
+    const localDay = (iso) => { const d = new Date(iso); return isNaN(d) ? '' : `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+    const hideDlg = (id) => { $(id).style.display = 'none'; };
+    for (const id of ['edit-dialog', 'move-dialog', 'stats-dialog']) $(id).addEventListener('click', (e) => { if (e.target === $(id)) hideDlg(id); });
+    $('btn-history-info').addEventListener('click', () => {
         const g = selectedGame(); if (!g) return;
-        const w = prompt('Joueur des blancs :', g.white || ''); if (w === null) return;
-        const b = prompt('Joueur des noirs :', g.black || ''); if (b === null) return;
-        const ev = prompt('Événement / commentaire :', g.event || ''); if (ev === null) return;
-        g.white = w.trim(); g.black = b.trim(); g.event = ev.trim();
-        upsertGame(g); renderBase();
+        $('ed-white').value = g.white || ''; $('ed-black').value = g.black || ''; $('ed-event').value = g.event || '';
+        $('ed-result').value = ['white', 'black', 'draw'].includes(g.result) ? g.result : '';
+        $('ed-date').value = localDay(g.date);
+        $('edit-dialog').style.display = 'flex';
     });
-    document.getElementById('btn-history-move').addEventListener('click', () => {
-        const g = selectedGame(); if (!g) return;
+    $('ed-cancel').addEventListener('click', () => hideDlg('edit-dialog'));
+    $('ed-save').addEventListener('click', () => {
+        const g = selectedGame(); if (!g) { hideDlg('edit-dialog'); return; }
+        const ng = { ...g };
+        ng.white = $('ed-white').value.trim(); ng.black = $('ed-black').value.trim(); ng.event = $('ed-event').value.trim();
+        ng.result = $('ed-result').value || 'unfinished';
+        const dv = $('ed-date').value;
+        if (dv && dv !== localDay(g.date)) ng.date = new Date(dv + 'T12:00:00').toISOString();
+        upsertGame(ng);
+        hideDlg('edit-dialog'); refreshPlayerList(); renderBase(); setBaseStatus('Partie modifiée.');
+    });
+
+    // ---- Déplacer / copier (une ou plusieurs parties) ----
+    const mvSel = $('mv-base'), mvNew = $('mv-new');
+    $('btn-history-move').addEventListener('click', () => {
+        if (!selIds.size) return;
         const bases = getBases();
-        const ans = prompt('Déplacer vers quelle base ? Tapez le numéro :\n' + bases.map((b, i) => `${i + 1}. ${b}`).join('\n'));
-        const idx = parseInt(ans) - 1;
-        if (!(idx >= 0 && idx < bases.length)) return;
-        g.base = bases[idx]; upsertGame(g); selectedGameId = null; renderBase();
+        mvSel.innerHTML = '';
+        for (const b of bases) { const o = document.createElement('option'); o.value = b; o.textContent = b; mvSel.appendChild(o); }
+        const o = document.createElement('option'); o.value = '__new__'; o.textContent = '➕ Nouvelle base…'; mvSel.appendChild(o);
+        const other = bases.find(b => b !== currentBase); mvSel.value = other || '__new__';
+        mvNew.style.display = mvSel.value === '__new__' ? 'block' : 'none'; mvNew.value = '';
+        $('mv-count').textContent = `${selIds.size} partie(s) sélectionnée(s), base actuelle : « ${currentBase} ».`;
+        $('move-dialog').style.display = 'flex';
     });
+    mvSel.addEventListener('change', () => { mvNew.style.display = mvSel.value === '__new__' ? 'block' : 'none'; });
+    $('mv-cancel').addEventListener('click', () => hideDlg('move-dialog'));
+    const targetBase = () => {
+        let t = mvSel.value === '__new__' ? mvNew.value.trim() : mvSel.value;
+        if (!t) { alert('Donnez un nom à la nouvelle base.'); return null; }
+        const bs = getBases(); if (!bs.includes(t)) saveBases([...bs, t]);
+        return t;
+    };
+    $('mv-move').addEventListener('click', () => {
+        const t = targetBase(); if (!t) return;
+        const list = getGames().filter(g => selIds.has(g.id));
+        for (const g of list) upsertGame({ ...g, base: t });
+        const n = list.length;
+        selIds.clear(); selectedGameId = null; hideDlg('move-dialog'); refreshPlayerList(); renderBase();
+        setBaseStatus(`${n} partie(s) déplacée(s) vers « ${t} ».`);
+    });
+    $('mv-copy').addEventListener('click', async () => {
+        const t = targetBase(); if (!t) return;
+        if (t === currentBase) { alert('Choisissez une autre base pour copier.'); return; }
+        const list = getGames().filter(g => selIds.has(g.id));
+        const b0 = Date.now() * 1000;
+        const copies = list.map((g, i) => ({ ...g, id: b0 + i, base: t }));
+        await pushGames(copies);
+        hideDlg('move-dialog'); renderBase();
+        setBaseStatus(`${copies.length} partie(s) copiée(s) vers « ${t} ». Les originales restent ici.`);
+    });
+
+    // ---- Statistiques ----
+    const body = $('stats-body');
+    const el = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
+    const pc = (a, n) => (n ? Math.round(a * 100 / n) : 0);
+    const bar = (w, d, l) => {
+        const n = w + d + l, b = el('div', 'stats-bar');
+        for (const [c, v, t] of [['sw', w, 'Blancs gagnent'], ['sd', d, 'Nulles'], ['sl', l, 'Noirs gagnent']]) { const s = el('span', c); s.style.width = (n ? v * 100 / n : 0) + '%'; s.title = `${t} : ${v}`; b.appendChild(s); }
+        return b;
+    };
+    const table = (head, rows) => {
+        const t = el('table', 'stats-table'), tr = el('tr');
+        head.forEach((h, i) => tr.appendChild(el('th', i ? 'n' : '', h))); t.appendChild(tr);
+        for (const r of rows) { const x = el('tr'); r.forEach((c, i) => x.appendChild(el('td', i ? 'n' : '', c))); t.appendChild(x); }
+        return t;
+    };
+    const tally = () => ({ n: 0, w: 0, d: 0, l: 0 });
+    const addRes = (o, r) => { o.n++; if (r === 'white') o.w++; else if (r === 'draw') o.d++; else if (r === 'black') o.l++; };
+    const resCells = (o) => { const f = o.w + o.d + o.l; return [String(o.n), pc(o.w, f) + ' %', pc(o.d, f) + ' %', pc(o.l, f) + ' %']; };
+    let posSection = null;
+    function buildStats() {
+        const games = filteredGames(); body.innerHTML = '';
+        body.appendChild(el('div', 'stats-line', `${games.length} partie(s) dans la liste actuelle (base « ${currentBase} »). Les filtres et la recherche en cours s'appliquent.`));
+        if (!games.length) return;
+        const all = tally(); for (const g of games) addRes(all, g.result);
+        body.appendChild(el('h3', '', 'Résultats'));
+        body.appendChild(bar(all.w, all.d, all.l));
+        const f = all.w + all.d + all.l;
+        body.appendChild(el('div', 'stats-line', `Blancs gagnent : ${all.w} (${pc(all.w, f)} %) · Nulles : ${all.d} (${pc(all.d, f)} %) · Noirs gagnent : ${all.l} (${pc(all.l, f)} %)` + (all.n > f ? ` · non terminées : ${all.n - f}` : '')));
+        const pq = normTxt(basePlayer).trim().split(/\s+/).filter(Boolean);
+        if (pq.length) {
+            const has = (name) => { const t = normTxt(name); return pq.every(x => t.includes(x)); };
+            let pw = 0, pd = 0, pl = 0, n = 0;
+            for (const g of games) {
+                const side = has(g.white) ? 'white' : has(g.black) ? 'black' : null;
+                if (!side) continue; n++;
+                if (g.result === 'draw') pd++; else if (g.result === side) pw++; else if (g.result === 'white' || g.result === 'black') pl++;
+            }
+            body.appendChild(el('h3', '', `Joueur « ${basePlayer.trim()} »`));
+            const dec = pw + pd + pl;
+            body.appendChild(bar(pw, pd, pl));
+            body.appendChild(el('div', 'stats-line', `${n} partie(s) : victoires ${pw}, nulles ${pd}, défaites ${pl}` + (dec ? ` · score ${Math.round((pw + pd / 2) * 100 / dec)} %` : '')));
+        }
+        const op = new Map();
+        for (const g of games) {
+            if (g.start) continue; const t = (g.ms || '').split(' '); if (t.length < 2) continue;
+            const k = t[0] + ' ' + t[1]; let o = op.get(k); if (!o) { o = tally(); op.set(k, o); } addRes(o, g.result);
+        }
+        if (op.size) {
+            body.appendChild(el('h3', '', 'Ouvertures les plus jouées (2 premiers coups)'));
+            body.appendChild(table(['Coups', 'Parties', '1-0', '½', '0-1'], [...op.entries()].sort((a, b) => b[1].n - a[1].n).slice(0, 12).map(([k, o]) => [k, ...resCells(o)])));
+        }
+        if (posSection) {
+            body.appendChild(el('h3', '', posSection.title));
+            if (posSection.rows.length) body.appendChild(table(['Coup suivant', 'Parties', '1-0', '½', '0-1'], posSection.rows)); else body.appendChild(el('div', 'stats-line', 'Aucune partie de la liste ne passe par cette position.'));
+        }
+    }
+    $('btn-dbstats').addEventListener('click', () => { posSection = null; buildStats(); $('stats-dialog').style.display = 'flex'; });
+    $('stats-close').addEventListener('click', () => hideDlg('stats-dialog'));
+    $('stats-pos').addEventListener('click', async () => {
+        if (baseBusy) return;
+        baseBusy = true;
+        try {
+            const target = FG.hashPos(FG.posFromBoard(gameState.board));
+            const games = filteredGames(), next = new Map(); let found = 0, i = 0;
+            for (const g of games) {
+                i++;
+                if (i % 1000 === 0) { body.insertBefore(el('div', 'stats-line', `Calcul : ${i} / ${games.length}…`), body.firstChild); await yieldUI(); body.removeChild(body.firstChild); }
+                let k = keyCache.get(g.id);
+                if (!k) { k = FG.replayMoves(FG.startPosOf(g), g.ms ? g.ms.split(' ') : []).keys; keyCache.set(g.id, k); }
+                const p = k.indexOf(target); if (p < 0) continue;
+                found++;
+                const mv = (g.ms || '').split(' ')[p]; if (!mv) continue;
+                let o = next.get(mv); if (!o) { o = tally(); next.set(mv, o); } addRes(o, g.result);
+            }
+            posSection = { title: `Position du damier : ${found} partie(s)`, rows: [...next.entries()].sort((a, b) => b[1].n - a[1].n).slice(0, 15).map(([k, o]) => [k, ...resCells(o)]) };
+        } catch (err) { console.error(err); }
+        finally { baseBusy = false; buildStats(); updateHistoryButtons(); }
+    });
+
     document.getElementById('btn-history-watch').addEventListener('click', () => {
         const game = selectedGame();
         if (game) { hideHistoryDialog(); watchGame(game); }
