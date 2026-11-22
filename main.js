@@ -1423,8 +1423,12 @@ async function selfLearnLoop() {
             turnController.setHumanColor('both');
             await playRandomOpening(Math.random() < 0.5 ? 2 : 3);
             // 2) partie jouée par le moteur contre lui-même
-            let ply = 0, streak = 0;
-            while (alive() && !gameState.gameOver && ply < 140) {
+            let ply = 0, still = 0, lastSig = '';
+            const pop = x => { x = x >>> 0; let c = 0; while (x) { x &= x - 1; c++; } return c; };
+            while (alive() && !gameState.gameOver && ply < 400) {
+                { const b = gameState.board, sig = pop(b.white) + ',' + pop(b.black) + ',' + pop((b.white | b.black) & ~b.kings);
+                  if (sig === lastSig) still++; else { still = 0; lastSig = sig; }
+                  if (still >= 80) break; }   // nulle : 80 coups sans prise ni coup de pion
                 const legal = gameState.legalMoves || [];
                 if (!legal.length) break;
                 let mv = legal[0];
@@ -1433,8 +1437,6 @@ async function selfLearnLoop() {
                     const r = await engine.search(gameState.board, playSecs, playSecs, null, true);
                     if (!alive()) break;
                     if (r && r.bestMove) mv = legal.find(m => m.notation === r.bestMove.notation) || legal[0];
-                    if (r && r.score !== undefined) { streak = Math.abs(r.score) >= 1500 ? streak + 1 : 0; }
-                    if (streak >= 8) break;   // partie décidée
                 }
                 await gameState.makeMove(mv);
                 ply++;
