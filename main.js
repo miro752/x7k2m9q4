@@ -1564,7 +1564,9 @@ function setupBook() {
         const hist = gameState.history.slice(0, n);
         if (!hist.length) { setLearnStatus("Aucun coup à ajouter : jouez d'abord une ligne sur l'échiquier."); return; }
         const bk = bookLoad(); let add = 0;
+        const side = ($('book-side') && $('book-side').value) || 'both';
         for (const h of hist) {
+            if (side !== 'both' && (h.board.whiteToMove ? 'w' : 'b') !== side) continue;
             const key = bookKey(h.board); const l = bk[key] || [];
             if (!l.includes(h.notation)) { l.push(h.notation); add++; }
             bk[key] = l;
@@ -1572,6 +1574,15 @@ function setupBook() {
         bookSave(bk); refreshBook();
         setLearnStatus(`${add} coup(s) ajouté(s) au livre (${hist.length} coup(s) de la ligne). Le livre contient ${bookCount()} position(s).`);
     });
+    for (const sd of ['w', 'b']) {
+        const bt = $('book-del-' + sd);
+        if (bt) bt.addEventListener('click', () => {
+            const bk = bookLoad(); let n = 0;
+            for (const k of Object.keys(bk)) if (k.endsWith(',' + sd)) { n += bk[k].length; delete bk[k]; }
+            bookSave(bk); refreshBook();
+            setLearnStatus(`${n} coup(s) des ${sd === 'w' ? 'Blancs' : 'Noirs'} retiré(s). Le livre contient ${bookCount()} position(s).`);
+        });
+    }
     if ($('book-clear')) $('book-clear').addEventListener('click', () => { if (confirm(`Vider le livre (${bookCount()} position(s)) ?`)) { localStorage.removeItem(BOOK_KEY); refreshBook(); setLearnStatus('Livre vidé.'); } });
     if ($('book-export')) $('book-export').addEventListener('click', () => {
         const blob = new Blob([JSON.stringify({ sambrk: 'livre', version: 1, date: new Date().toISOString(), book: bookLoad() })], { type: 'application/json' });
