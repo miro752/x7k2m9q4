@@ -127,7 +127,7 @@ async function init() {
 
         // Create modules
         updateLoadingStatus('Démarrage de la partie...');
-        boardUI = new BoardUI(canvas);
+        boardUI = new BoardUI(canvas); window.__boardUI = boardUI;
         gameState = new GameState(engine);
         searchManager = new SearchManager(engine);
         turnController = new TurnController(gameState, searchManager);
@@ -280,9 +280,15 @@ function wireSearchManagerEvents() {
         updatePlayButton();
     });
 
+    let thinkT0 = 0, thinkIv = null;
+    const thinkEl = () => document.getElementById('think-timer');
+    const thinkStop = () => { if (thinkIv) { clearInterval(thinkIv); thinkIv = null; } };
+    searchManager.addEventListener('searchEnd', thinkStop);
     searchManager.addEventListener('searchStart', (e) => {
         if (e.detail.type === 'think') {
             updateStatus('Le moteur réfléchit...');
+            thinkStop(); thinkT0 = Date.now();
+            thinkIv = setInterval(() => { const el = thinkEl(); if (el) el.textContent = '⏱ ' + ((Date.now() - thinkT0) / 1000).toFixed(1) + ' s'; }, 100);
         }
         updatePlayButton();
         updateUndoRedoButtons();
@@ -1389,11 +1395,223 @@ async function learnFromGame() {
     }
 }
 
+
+// --- Auto-apprentissage : ordinateur contre ordinateur ---
+let selfRun = 0, selfActive = false;
+function setSelfBtn() { const b = document.getElementById('learn-self'); if (b) b.textContent = selfActive ? '■ Arrêter l\'auto-apprentissage' : '▶ Auto-apprentissage (ordi contre ordi)'; }
+
+async function selfLearnLoop() {
+    if (selfActive) { selfRun++; selfActive = false; try { engine.stopSearch(); } catch (e) {} setSelfBtn(); return; }
+    if (editMode) { showLearnPanel(); setLearnStatus('Quittez le mode édition avant.'); return; }
+    if (learnActive) stopLearn();
+    showLearnPanel();
+    const rows = document.getElementById('learn-rows'); rows.innerHTML = '';
+    const run = ++selfRun; selfActive = true; setSelfBtn();
+    const playSecs = parseFloat(document.getElementById('self-time').value) || 0.5;
+    const anaSecs = parseFloat(document.getElementById('learn-time').value) || 2;
+    const thr = parseInt(document.getElementById('learn-thr').value) || 50;
+    const alive = () => run === selfRun;
+    const savedAuto = turnController.autoPlay, wasPonder = turnController.ponderEnabled, savedHC = turnController.humanColor;
+    turnController.autoPlay = false;
+    if (wasPonder) await togglePondering(false);
+    await searchManager.abort();
+    let games = 0, found = 0;
+    try {
+        while (alive()) {
+            // 1) nouvelle partie avec ouverture tirée au sort (2 ou 3 coups)
+            await gameState.newGame();
+            turnController.setHumanColor('both');
+            await playRandomOpening(Math.random() < 0.5 ? 2 : 3);
+            // 2) partie jouée par le moteur contre lui-même
+            let ply = 0, streak = 0;
+            while (alive() && !gameState.gameOver && ply < 140) {
+                const legal = gameState.legalMoves || [];
+                if (!legal.length) break;
+                let mv = legal[0];
+                if (legal.length > 1) {
+                    setLearnStatus(`Partie ${games + 1} — coup ${ply + 1} (${playSecs} s/coup) — ${found} erreur(s) mémorisée(s), ${memCount()} position(s) en mémoire`);
+                    const r = await engine.search(gameState.board, playSecs, playSecs, null, true);
+                    if (!alive()) break;
+                    if (r && r.bestMove) mv = legal.find(m => m.notation === r.bestMove.notation) || legal[0];
+                    if (r && r.score !== undefined) { streak = Math.abs(r.score) >= 1500 ? streak + 1 : 0; }
+                    if (streak >= 8) break;   // partie décidée
+                }
+                await gameState.makeMove(mv);
+                ply++;
+            }
+            if (!alive()) break;
+            // 3) analyse de la partie : les erreurs des deux camps sont mémorisées
+            const hist = gameState.history.slice();
+            if (hist.length >= 4) {
+                const boards = hist.map(h => h.board); boards.push(gameState.board);
+                const cache = new Map();
+                const evalPos = async (i) => {
+                    if (cache.has(i)) return cache.get(i);
+                    const b = boards[i]; const legal = await engine.getLegalMoves(b); let r;
+                    if (!legal.length) r = { score: -30000, bestMove: null, legalCount: 0 };
+                    else { const q = await engine.search(b, anaSecs, anaSecs, null, true); r = (q && !q.error && q.score !== undefined) ? { score: q.score, bestMove: q.bestMove, legalCount: legal.length } : null; }
+                    cache.set(i, r); return r;
+                };
+                const mem = memLoad();
+                for (let k = 0; k < hist.length && alive(); k++) {
+                    setLearnStatus(`Partie ${games + 1} terminée — analyse ${k + 1} / ${hist.length} — ${found} erreur(s) mémorisée(s), ${memCount()} position(s) en mémoire`);
+                    const a = await evalPos(k); if (!alive() || !a || a.legalCount < 2 || !a.bestMove) continue;
+                    const b = await evalPos(k + 1); if (!alive() || !b) continue;
+                    const eBefore = a.score, eAfter = -b.score;
+                    if ((eBefore <= -800 && eAfter <= -800) || (eBefore >= 800 && eAfter >= 800)) continue;
+                    const loss = eBefore - eAfter, played = hist[k].notation, better = a.bestMove.notation;
+                    if (loss >= thr && better && better !== played) {
+                        const key = memPosKey(boards[k]); const old = mem[key];
+                        const bad = Array.from(new Set([...((old && old.bad) || []), played]));
+                        mem[key] = { ...(old || {}), bad, better, loss: Math.round(loss), date: new Date().toISOString() };
+                        memSave(mem); found++;
+                    }
+                }
+            }
+            if (!alive()) break;
+            games++;
+            const d = document.createElement('div'); d.className = 'ext-row';
+            d.textContent = `Partie ${games} : ${hist.length} coups — mémoire : ${memCount()} position(s)`;
+            rows.prepend(d);
+        }
+    } catch (err) { console.error('Auto-apprentissage:', err); setLearnStatus("Erreur pendant l'auto-apprentissage."); }
+    finally {
+        const wasMine = run === selfRun;
+        selfActive = false; setSelfBtn();
+        turnController.autoPlay = savedAuto;
+        if (wasPonder && !turnController.ponderEnabled) await togglePondering(true);
+        turnController.setHumanColor(savedHC);
+        if (wasMine) setLearnStatus(`Auto-apprentissage terminé : ${games} partie(s), ${found} erreur(s) retenue(s). Mémoire : ${memCount()} position(s).`);
+        else setLearnStatus(`Auto-apprentissage arrêté : ${games} partie(s) terminée(s), ${found} erreur(s) retenue(s). Mémoire : ${memCount()} position(s).`);
+    }
+}
+
+// --- Export / import du fichier d'apprentissage ---
+function exportLearning() {
+    const mem = memLoad();
+    const blob = new Blob([JSON.stringify({ sambrk: 'apprentissage', version: 1, date: new Date().toISOString(), positions: mem })], { type: 'application/json' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+    a.download = 'apprentissage-sambrk-' + new Date().toISOString().slice(0, 10) + '.json';
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    setLearnStatus(`Fichier exporté : ${Object.keys(mem).length} position(s).`);
+}
+async function importLearning(file) {
+    try {
+        const j = JSON.parse(await file.text());
+        const inc = j && j.positions ? j.positions : null;
+        if (!inc || typeof inc !== 'object') throw new Error('format');
+        const mem = memLoad(); let add = 0, upd = 0;
+        for (const [k, v] of Object.entries(inc)) {
+            if (!/^\d+,\d+,\d+$/.test(k) || !v || typeof v !== 'object') continue;
+            const old = mem[k];
+            if (!old) { mem[k] = v; add++; continue; }
+            const bad = Array.from(new Set([...(old.bad || []), ...(v.bad || [])]));
+            mem[k] = { ...old, ...v, bad: bad.length ? bad : undefined }; upd++;
+        }
+        memSave(mem);
+        showLearnPanel();
+        setLearnStatus(`Import terminé : ${add} position(s) ajoutée(s), ${upd} fusionnée(s). Mémoire totale : ${memCount()} position(s).`);
+    } catch (e) { showLearnPanel(); setLearnStatus("Fichier d'apprentissage non valide."); }
+}
+function setupSelfLearning() {
+    const b = document.getElementById('learn-self'); if (b) b.addEventListener('click', selfLearnLoop);
+    const ex = document.getElementById('learn-export'); if (ex) ex.addEventListener('click', exportLearning);
+    const im = document.getElementById('learn-import'), fi = document.getElementById('learn-file');
+    if (im && fi) { im.addEventListener('click', () => fi.click()); fi.addEventListener('change', async () => { if (fi.files[0]) await importLearning(fi.files[0]); fi.value = ''; }); }
+    const stop = document.getElementById('learn-stop'); if (stop) stop.addEventListener('click', () => { if (selfActive) selfLearnLoop(); });
+    const close = document.getElementById('learn-close'); if (close) close.addEventListener('click', () => { if (selfActive) selfLearnLoop(); });
+}
+
+
+// --- Livre d'ouvertures personnel (arbre) ---
+const BOOK_KEY = 'sambrk.book';
+function bookLoad() { try { return JSON.parse(localStorage.getItem(BOOK_KEY)) || {}; } catch (e) { return {}; } }
+function bookSave(b) { try { localStorage.setItem(BOOK_KEY, JSON.stringify(b)); } catch (e) { console.warn(e); } }
+function bookKey(b) { return `${b.white},${b.black},${b.kings},${b.whiteToMove ? 'w' : 'b'}`; }
+function bookCount() { return Object.keys(bookLoad()).length; }
+function bookMovesHere() { return bookLoad()[bookKey(gameState.board)] || []; }
+function refreshBook() {
+    const el = document.getElementById('book-here'); if (!el) return;
+    el.textContent = '';
+    const mv = bookMovesHere();
+    const info = document.createElement('span');
+    info.textContent = `Livre : ${bookCount()} position(s). Ici : ` + (mv.length ? '' : 'aucun coup. ');
+    el.appendChild(info);
+    // coups légaux : clic = ajouter / retirer du livre pour la position affichée
+    (gameState.legalMoves || []).forEach(m => {
+        const b = document.createElement('button'); const inB = mv.includes(m.notation);
+        b.className = 'btn btn-small no-tr'; b.style.margin = '0 3px 3px 0';
+        b.textContent = (inB ? '✓ ' : '') + m.notation;
+        b.title = inB ? 'Dans le livre — cliquer pour retirer' : 'Cliquer pour ajouter ce coup au livre';
+        b.addEventListener('click', () => {
+            const bk = bookLoad(), key = bookKey(gameState.board); const l = bk[key] || [];
+            const i = l.indexOf(m.notation);
+            if (i >= 0) l.splice(i, 1); else l.push(m.notation);
+            if (l.length) bk[key] = l; else delete bk[key];
+            bookSave(bk); refreshBook();
+        });
+        el.appendChild(b);
+    });
+}
+function setupBook() {
+    const $ = id => document.getElementById(id);
+    if ($('btn-book')) $('btn-book').addEventListener('click', () => { showLearnPanel(); refreshBook(); setLearnStatus("Livre d'ouvertures : jouez les coups sur l'échiquier (mode 2 joueurs) puis « Ajouter cette ligne », ou cliquez un coup légal ci-dessous pour l'ajouter à la position affichée. Le moteur jouera ces coups (au hasard s'il y en a plusieurs)."); });
+    for (const ev of ['move', 'undo', 'redo', 'newGame', 'positionChanged', 'gameLoaded']) gameState.addEventListener(ev, () => { const p = $('learn-panel'); if (p && p.style.display !== 'none') refreshBook(); });
+    if ($('book-add-game')) $('book-add-game').addEventListener('click', () => {
+        const n = parseInt($('book-plies').value) || 16;
+        const hist = gameState.history.slice(0, n);
+        if (!hist.length) { setLearnStatus("Aucun coup à ajouter : jouez d'abord une ligne sur l'échiquier."); return; }
+        const bk = bookLoad(); let add = 0;
+        for (const h of hist) {
+            const key = bookKey(h.board); const l = bk[key] || [];
+            if (!l.includes(h.notation)) { l.push(h.notation); add++; }
+            bk[key] = l;
+        }
+        bookSave(bk); refreshBook();
+        setLearnStatus(`${add} coup(s) ajouté(s) au livre (${hist.length} coup(s) de la ligne). Le livre contient ${bookCount()} position(s).`);
+    });
+    if ($('book-clear')) $('book-clear').addEventListener('click', () => { if (confirm(`Vider le livre (${bookCount()} position(s)) ?`)) { localStorage.removeItem(BOOK_KEY); refreshBook(); setLearnStatus('Livre vidé.'); } });
+    if ($('book-export')) $('book-export').addEventListener('click', () => {
+        const blob = new Blob([JSON.stringify({ sambrk: 'livre', version: 1, date: new Date().toISOString(), book: bookLoad() })], { type: 'application/json' });
+        const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'livre-sambrk-' + new Date().toISOString().slice(0, 10) + '.json';
+        document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+        setLearnStatus(`Livre exporté : ${bookCount()} position(s).`);
+    });
+    if ($('book-import') && $('book-file')) {
+        $('book-import').addEventListener('click', () => $('book-file').click());
+        $('book-file').addEventListener('change', async () => {
+            const f = $('book-file').files[0]; $('book-file').value = ''; if (!f) return;
+            try {
+                const j = JSON.parse(await f.text()); if (!j.book || typeof j.book !== 'object') throw 0;
+                const bk = bookLoad(); let add = 0;
+                for (const [k, l] of Object.entries(j.book)) {
+                    if (!/^\d+,\d+,\d+,[wb]$/.test(k) || !Array.isArray(l)) continue;
+                    const cur = bk[k] || [];
+                    for (const m of l) if (typeof m === 'string' && !cur.includes(m)) { cur.push(m); add++; }
+                    bk[k] = cur;
+                }
+                bookSave(bk); refreshBook(); setLearnStatus(`Livre importé : ${add} coup(s) ajouté(s). Total : ${bookCount()} position(s).`);
+            } catch (e) { setLearnStatus('Fichier de livre non valide.'); }
+        });
+    }
+    // le moteur joue d'abord le livre personnel
+    const prev = turnController.errorMemoryHook;
+    turnController.errorMemoryHook = (board, best) => {
+        const l = bookLoad()[bookKey(board)];
+        if (l && l.length) {
+            const legal = (gameState.board && bookKey(gameState.board) === bookKey(board)) ? (gameState.legalMoves || []) : [];
+            const cands = legal.filter(m => l.includes(m.notation));
+            if (cands.length) return cands[Math.floor(Math.random() * cands.length)];
+        }
+        return prev ? prev(board, best) : null;
+    };
+}
+
 function setupLearning() {
     const btn = document.getElementById('btn-learn');
     if (btn) btn.addEventListener('click', learnFromGame);
     const stop = document.getElementById('learn-stop');
-    if (stop) stop.addEventListener('click', () => { if (learnActive) stopLearn(); else learnFromGame(); });
+    if (stop) stop.addEventListener('click', () => { if (learnActive) stopLearn(); else if (!selfActive) learnFromGame(); });
     const teach = document.getElementById('learn-teach');
     if (teach) teach.addEventListener('click', () => {
         showLearnPanel();
@@ -1557,6 +1775,7 @@ function updateTimeDisplay(seconds) {
 // --- Search info ---
 
 function clearSearchInfo() {
+    try { updateMateOverlay(null); } catch (e) {}
     const searchInfo = document.getElementById('search-info');
     if (searchInfo) searchInfo.style.display = 'none';
     if (boardUI) boardUI.setArrow(null);
@@ -1663,8 +1882,22 @@ function normalizeScore(score) {
 
 let lastEvalScore = null;
 
+function updateMateOverlay(score) {
+    const box = document.getElementById('board-container');
+    if (!box) return;
+    let el = document.getElementById('mate-overlay');
+    if (!el) { el = document.createElement('div'); el.id = 'mate-overlay'; el.className = 'no-tr'; box.appendChild(el); }
+    if (score === null || score === undefined || Math.abs(score) <= 29000 || Math.abs(score) > 30000 || !showAnalysis) { el.style.display = 'none'; return; }
+    const n = Math.max(1, Math.ceil((30000 - Math.abs(score)) / 2));
+    // score vu du camp au trait : > 0 = le camp au trait gagne
+    el.textContent = (score > 0 ? '#' : '-#') + n;
+    el.className = 'no-tr ' + (score > 0 ? 'win' : 'lose');
+    el.style.display = 'block';
+}
+
 function updateEvalBar(score) {
     lastEvalScore = score;
+    try { updateMateOverlay(score); } catch (e) {}
     const bar = document.getElementById('eval-bar-white');
     if (!bar) return;
 
@@ -3027,7 +3260,7 @@ function setupEventHandlers() {
     setupSaveAndNames();
     setupRec();
     setupNavButtons();
-    setupLearning();
+    setupLearning(); setupSelfLearning(); setupBook();
     setupAutoCapture();
     setupShortcuts();
     setupClockAndLang();

@@ -50,6 +50,7 @@
                     <button id="btn-stats" class="btn btn-small">Parties</button>
                     <button id="btn-ext" class="btn btn-small" title="Raccourci : R">Réflexion</button>
                     <button id="btn-learn" class="btn btn-small" title="Analyse la partie et retient les erreurs du moteur">Apprendre de cette partie</button>
+                    <button id="btn-book" class="btn btn-small" title="Créer votre propre livre d'ouvertures (arbre de coups)">Livre d'ouvertures</button>
                     <button id="btn-save-game" class="btn btn-small" title="Enregistrer cette partie dans la base" disabled>💾 Enregistrer</button>
                     <button id="btn-rec" class="btn btn-small" title="Filmer la partie en vidéo (à lancer et arrêter quand vous voulez)">🎥 Filmer</button>
                 </div>
@@ -107,6 +108,27 @@
                         <button id="learn-clear" class="btn btn-small">Effacer la mémoire</button>
                         <button id="learn-close" class="btn btn-small">Fermer</button>
                     </div>
+                    <div class="ext-head">
+                        <label>Auto-apprentissage : temps par coup
+                            <select id="self-time"><option value="0.3">0,3 s</option><option value="0.5" selected>0,5 s</option><option value="1">1 s</option><option value="2">2 s</option></select>
+                        </label>
+                        <button id="learn-self" class="btn btn-small" title="Le moteur joue contre lui-même (ouvertures tirées au sort), analyse chaque partie et mémorise ses erreurs, jusqu'à ce que vous l'arrêtiez">▶ Auto-apprentissage (ordi contre ordi)</button>
+                        <button id="learn-export" class="btn btn-small" title="Enregistre la mémoire dans un fichier à copier sur les autres machines">⬇ Exporter l'apprentissage</button>
+                        <button id="learn-import" class="btn btn-small" title="Charge un fichier d'apprentissage (fusionné avec la mémoire existante)">⬆ Importer l'apprentissage</button>
+                        <input type="file" id="learn-file" accept=".json,application/json" style="display:none">
+                    </div>
+                    <div class="ext-head">
+                        <b>Livre d'ouvertures personnel</b>
+                        <label>Ajouter les
+                            <select id="book-plies"><option value="6">6 premiers coups</option><option value="10">10 premiers coups</option><option value="16" selected>16 premiers coups</option><option value="30">30 premiers coups</option><option value="999">Toute la partie</option></select>
+                        </label>
+                        <button id="book-add-game" class="btn btn-small" title="Ajoute au livre les coups de la partie affichée (pour les deux camps) : plusieurs lignes forment un arbre">+ Ajouter cette ligne au livre</button>
+                        <button id="book-export" class="btn btn-small">⬇ Exporter le livre</button>
+                        <button id="book-import" class="btn btn-small">⬆ Importer le livre</button>
+                        <button id="book-clear" class="btn btn-small">Vider le livre</button>
+                        <input type="file" id="book-file" accept=".json,application/json" style="display:none">
+                    </div>
+                    <div id="book-here" class="ext-status no-tr"></div>
                     <div id="learn-status" class="ext-status"></div>
                     <div id="learn-rows" class="ext-rows"></div>
                 </div>
@@ -159,14 +181,15 @@
 
                 <!-- Engine controls -->
                 <div class="control-group">
-                    <h3>Moteur</h3>
+                    <h3>Engine</h3>
                     <div class="input-group">
                         <span id="engine-time-left" class="time-left">00:00.0</span>
                         <span id="btn-time-per-move" class="time-per-move" title="Cliquez pour changer">+3s/coup</span>
+                        <span id="think-timer" class="time-per-move no-tr" title="Temps de réflexion en cours">⏱ 0.0 s</span>
                     </div>
                     <div class="toggle-group">
-                        <button id="btn-engine-white" class="toggle-btn" title="Raccourci : B">Moteur blancs (B)</button>
-                        <button id="btn-engine-black" class="toggle-btn active" title="Raccourci : N">Moteur noirs (N)</button>
+                        <button id="btn-engine-white" class="toggle-btn" title="Raccourci : B">Engine blancs (B)</button>
+                        <button id="btn-engine-black" class="toggle-btn active" title="Raccourci : N">Engine noirs (N)</button>
                         <button id="btn-two-player" class="toggle-btn" title="Raccourci : J">2 joueurs (J)</button>
                     </div>
                     <div id="clock-box" class="clock-box">
@@ -476,7 +499,7 @@
                 <details><summary>Ouvertures au hasard (2 ou 3 coups)</summary>
                     <p>Dans « Nouvelle partie », « Au hasard : 2 coups » tire l'une des <b>43</b> ouvertures officielles à 2 coups, et « Au hasard : 3 coups » l'une des <b>238</b> ouvertures officielles à 3 coups. Les coups sont joués automatiquement, puis la partie commence.</p></details>
                 <details><summary>Le moteur et l'analyse</summary>
-                    <p><b>Jouer !</b> demande au moteur de jouer. Les boutons <b>Moteur blancs / Moteur noirs / 2 joueurs</b> choisissent qui joue chaque camp. Le temps par coup se règle en cliquant sur « +3s/coup ». <b>Afficher l'analyse</b> montre l'évaluation et la meilleure suite, avec une flèche verte sur le damier. <b>Analyse infinie</b> (option) fait réfléchir le moteur sans limite de temps pendant que vous réfléchissez. <b>Réflexion</b> (touche R) analyse tous les coups possibles et les classe. <b>Apprendre de cette partie</b> repère vos erreurs et celles du moteur et s'en souvient pour la suite.</p></details>
+                    <p><b>Jouer !</b> demande au moteur de jouer. Les boutons <b>Engine blancs / Engine noirs / 2 joueurs</b> choisissent qui joue chaque camp. Le temps par coup se règle en cliquant sur « +3s/coup ». <b>Afficher l'analyse</b> montre l'évaluation et la meilleure suite, avec une flèche verte sur le damier. <b>Analyse infinie</b> (option) fait réfléchir le moteur sans limite de temps pendant que vous réfléchissez. <b>Réflexion</b> (touche R) analyse tous les coups possibles et les classe. <b>Apprendre de cette partie</b> repère vos erreurs et celles du moteur et s'en souvient pour la suite.</p></details>
                 <details><summary>Horloges</summary>
                     <p>Cliquez sur l'horloge pour choisir : <b>sans limite</b>, <b>temps normal</b> (total + ajout par coup), <b>tournoi</b> (temps donné pour un nombre de coups) ou <b>temps fixe par coup</b> pour le moteur. Quand le temps tombe à zéro, la partie est perdue au temps.</p></details>
                 <details><summary>Problème (composer une position)</summary>
@@ -491,6 +514,16 @@
                     <p>Le bouton <b>🎨 Couleurs</b> (en bas à droite) ouvre six onglets : <b>Skins</b> (thèmes en un clic), <b>Damier</b> (cases en bois ou marbre, cadre, numéros), <b>Pièces</b> (style et couleurs), <b>Fond</b> (bois, marbre, ardoise, feutre, nuit), <b>Flèches</b> (couleurs et épaisseur), <b>Affichage</b> (taille du damier). <b>🔍 Agrandir</b> masque les panneaux pour un grand damier. « Tout remettre par défaut » revient au look d'origine.</p></details>
                 <details><summary>Sons</summary>
                     <p>Des sons accompagnent les coups, les prises, les promotions en dame, le début et la fin de partie. Cochez ou décochez <b>Son</b> et réglez le <b>Volume</b> dans Options.</p></details>
+                <details><summary>Temps de réflexion et « #N » (coups pour gagner)</summary>
+                    <p>Dans le bloc <b>Engine</b>, <b>Réflexion N s/coup</b> est le temps accordé au moteur (cliquez pour le changer) et <b>⏱</b> est le minuteur : il compte le temps de réflexion du moteur en cours, puis garde la durée du dernier coup. Quand l'analyse est affichée et que le moteur voit un gain forcé, un grand <b>#N</b> translucide apparaît sur le damier : le camp qui doit jouer gagne en N coups. Un <b>-#N</b> rouge signifie qu'il perd en N coups.</p></details>
+                <details><summary>Auto-apprentissage (ordinateur contre ordinateur)</summary>
+                    <p>Cliquez <b>Apprendre de cette partie</b> pour ouvrir le panneau, puis <b>▶ Auto-apprentissage</b>. Le moteur joue contre lui-même, partie après partie (ouvertures de 2 ou 3 coups tirées au sort), analyse chaque partie puis mémorise les coups qu'il juge mauvais pour ne plus les rejouer. Vous le voyez jouer sur le damier. Choisissez le temps par coup (partie) et le temps par position (analyse). Cliquez <b>■ Arrêter l'auto-apprentissage</b> (ou <b>Arrêter</b> / <b>Fermer</b>) quand vous voulez : tout ce qui est appris reste en mémoire.</p></details>
+                <details><summary>Transférer l'apprentissage vers une autre machine</summary>
+                    <p>Dans le panneau d'apprentissage, <b>⬇ Exporter l'apprentissage</b> crée un fichier <i>apprentissage-sambrk-date.json</i>. Copiez-le sur l'autre machine (clé USB, mail…), ouvrez SAM_brk, panneau d'apprentissage, puis <b>⬆ Importer l'apprentissage</b> : il est fusionné avec la mémoire de cette machine. La mémoire est propre à chaque navigateur : refaites l'export après chaque grande séance. La mémoire retient des positions et des coups, elle ne remplace pas les finales (DTM) du moteur.</p></details>
+                <details><summary>Livre d'ouvertures personnel (arbre)</summary>
+                    <p>Le bouton <b>Livre d'ouvertures</b> ouvre le panneau. Jouez une ligne sur le damier (mode 2 joueurs, ou retournez-y avec ← →), puis <b>+ Ajouter cette ligne au livre</b> (choisissez combien de premiers coups). Plusieurs lignes forment un arbre : à chaque position, le moteur joue au hasard l'un des coups du livre. Sous le panneau, les coups légaux de la position affichée sont des boutons : <b>✓</b> = déjà dans le livre, cliquez pour l'ajouter ou le retirer. <b>Exporter / Importer le livre</b> transfère le livre en fichier <i>livre-sambrk-date.json</i> ; <b>Vider le livre</b> l'efface. Le livre passe avant le moteur, mais le moteur réfléchit d'abord (la partie n'est pas accélérée).</p></details>
+                <details><summary>Vue 3D (scènes façon WinDamas)</summary>
+                    <p>🎨 Couleurs → onglet <b>Vue 3D</b> : Classique, Nuit, Inferno, Malaga, Luxe, Grand luxe, Guadalquivir, Mataró, ou <b>Damier 2D</b> pour revenir à la vue plane. Le damier est en perspective et les pions ont du volume ; on joue en cliquant comme d'habitude. Chaque scène impose ses couleurs de cases ; le style des pions, les flèches et les numéros restent ceux de vos réglages. Le choix est mémorisé.</p></details>
                 <details><summary>Raccourcis clavier</summary>
                     <p><b>B, N, J</b> : modes (moteur blancs, moteur noirs, deux joueurs) · <b>← →</b> : coup précédent / suivant · <b>Début / Fin</b> : début / fin de la partie · <b>Espace</b> : revoir la partie · <b>R</b> : réflexion sur tous les coups.</p></details>
                 <details><summary>Hors ligne, mise à jour, sauvegarde</summary>

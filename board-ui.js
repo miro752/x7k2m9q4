@@ -148,6 +148,7 @@ export class BoardUI {
         this.arrow = null;   // {from,to} flèche du meilleur coup
         this.look = Object.assign({}, BoardUI.DEFAULT_LOOK);
         this._loadCustom();
+        try { this.scene3d = localStorage.getItem('damas.scene') || '2d'; } catch (e) { this.scene3d = '2d'; }
         this._buildCustomPanel();
 
         // Event handling
@@ -294,6 +295,11 @@ export class BoardUI {
      * Main render function
      */
     render() {
+        if (this.scene3d && this.scene3d !== '2d') return this._render3d();
+        return this._renderFlat();
+    }
+
+    _renderFlat() {
         const ctx = this.ctx;
         const sq = this.squareSize;
 
@@ -415,6 +421,142 @@ export class BoardUI {
         if (this.showNumbers) this._drawSquareNumbers();
     }
 
+
+    // ---------- Vue 3D (perspective) : scènes ----------
+    static SCENES = {
+        classique:   { name: 'Classique',    sq: ['#f0d9b5', '#a8744a'], frame: '#4a2d12', wall: ['#e9d9b8', '#b79a6b'], floor: ['#6b4423', '#3f2713'], kind: 'wood' },
+        nuit:        { name: 'Nuit',         sq: ['#9aa4d6', '#2a2f55'], frame: '#0e1128', wall: ['#05071a', '#1c2552'], floor: ['#10142e', '#05061a'], kind: 'night' },
+        inferno:     { name: 'Inferno',      sq: ['#f0a35a', '#5a1308'], frame: '#1a0603', wall: ['#2b0500', '#ff5a10'], floor: ['#240804', '#0d0200'], kind: 'fire' },
+        malaga:      { name: 'Malaga',       sq: ['#fff4d6', '#2b7ab8'], frame: '#c9a15a', wall: ['#7fd0ff', '#fdf6e3'], floor: ['#d9b26a', '#a97d38'], kind: 'sea' },
+        luxe:        { name: 'Luxe',         sq: ['#efe6d2', '#7b1f2b'], frame: '#c8a24a', wall: ['#3a0b14', '#7b1f2b'], floor: ['#2a0a10', '#14040a'], kind: 'luxe' },
+        grandluxe:   { name: 'Grand luxe',   sq: ['#f4ead0', '#1c1c1c'], frame: '#d4af37', wall: ['#000000', '#2a2412'], floor: ['#161208', '#050402'], kind: 'gold' },
+        guadalquivir:{ name: 'Guadalquivir', sq: ['#ecdcae', '#4f7a4a'], frame: '#6e4b24', wall: ['#ffb36b', '#6fb3c8'], floor: ['#3f5d3a', '#223a22'], kind: 'river' },
+        mataro:      { name: 'Mataró',       sq: ['#f3e4cf', '#b3562f'], frame: '#7a3a1d', wall: ['#f2d3a8', '#cf8a55'], floor: ['#b3562f', '#7a3a1d'], kind: 'terra' }
+    };
+    static SCENE_ORDER = ['classique', 'nuit', 'inferno', 'malaga', 'luxe', 'grandluxe', 'guadalquivir', 'mataro', '2d'];
+    setScene(name) {
+        this.scene3d = (name && name !== '2d' && BoardUI.SCENES[name]) ? name : '2d';
+        try { localStorage.setItem('damas.scene', this.scene3d); } catch (e) {}
+        this.render();
+    }
+    // géométrie : cases (u,v) -> écran, avec perspective sur l'axe vertical
+    _geo3d() {
+        const S = this.size, near = S * 0.80, s0 = 0.62, top = S * 0.30, bot = S * 0.90, cx = S / 2;
+        const sOf = t => 1 / (1 + (1 / s0 - 1) * (1 - t));
+        const yOf = t => top + (bot - top) * (sOf(t) - s0) / (1 - s0);
+        const g = {
+            S, near, cx, top, bot, sOf, yOf,
+            fwd: (u, v) => { const t = v / 8; const sc = sOf(t); return { x: cx + (u - 4) / 8 * near * sc, y: yOf(t), sc }; },
+            inv: (x, y) => {
+                if (y < top || y > bot) return null;
+                const sv = s0 + (y - top) / (bot - top) * (1 - s0);
+                const t = 1 - (1 / sv - 1) / (1 / s0 - 1);
+                const sc = sOf(t);
+                return { u: 4 + (x - cx) / (near * sc) * 8, v: t * 8 };
+            }
+        };
+        return g;
+    }
+    _sceneBackground(ctx, sc, g) {
+        const S = g.S, horizon = S * 0.30;
+        const w = ctx.createLinearGradient(0, 0, 0, horizon + S * 0.05);
+        w.addColorStop(0, sc.wall[0]); w.addColorStop(1, sc.wall[1]);
+        ctx.fillStyle = w; ctx.fillRect(0, 0, S, S);
+        // décor selon la scène
+        const rnd = (() => { let a = 12345; return () => (a = (a * 1664525 + 1013904223) >>> 0) / 4294967296; })();
+        if (sc.kind === 'night') {
+            ctx.fillStyle = '#fff'; for (let i = 0; i < 70; i++) { ctx.globalAlpha = 0.3 + rnd() * 0.7; ctx.fillRect(rnd() * S, rnd() * horizon, 1.5, 1.5); } ctx.globalAlpha = 1;
+            const m = ctx.createRadialGradient(S * .8, S * .1, 2, S * .8, S * .1, S * .09); m.addColorStop(0, '#fffbe0'); m.addColorStop(1, 'rgba(255,251,224,0)'); ctx.fillStyle = m; ctx.beginPath(); ctx.arc(S * .8, S * .1, S * .09, 0, 7); ctx.fill();
+        } else if (sc.kind === 'fire') {
+            for (let i = 0; i < 22; i++) { const x = rnd() * S, h = S * (0.08 + rnd() * 0.18), w2 = S * (0.03 + rnd() * 0.05);
+                const f = ctx.createLinearGradient(0, horizon, 0, horizon - h); f.addColorStop(0, 'rgba(255,210,40,.9)'); f.addColorStop(.5, 'rgba(255,90,10,.7)'); f.addColorStop(1, 'rgba(120,0,0,0)');
+                ctx.fillStyle = f; ctx.beginPath(); ctx.moveTo(x - w2, horizon + 4); ctx.quadraticCurveTo(x - w2 * .2, horizon - h * .5, x, horizon - h); ctx.quadraticCurveTo(x + w2 * .2, horizon - h * .5, x + w2, horizon + 4); ctx.fill(); }
+        } else if (sc.kind === 'sea') {
+            ctx.fillStyle = '#1e90c8'; ctx.fillRect(0, horizon * .55, S, horizon * .45);
+            ctx.fillStyle = 'rgba(255,255,255,.35)'; for (let i = 0; i < 14; i++) ctx.fillRect(rnd() * S, horizon * (.6 + rnd() * .4), S * .06, 2);
+            ctx.fillStyle = '#ffd84a'; ctx.beginPath(); ctx.arc(S * .15, S * .08, S * .05, 0, 7); ctx.fill();
+        } else if (sc.kind === 'river') {
+            ctx.fillStyle = '#ff8a3d'; ctx.beginPath(); ctx.arc(S * .5, horizon * .8, S * .08, 0, 7); ctx.fill();
+            ctx.fillStyle = 'rgba(30,90,120,.8)'; ctx.fillRect(0, horizon * .75, S, horizon * .25);
+            ctx.fillStyle = 'rgba(255,200,120,.5)'; for (let i = 0; i < 10; i++) ctx.fillRect(S * (.35 + rnd() * .3), horizon * (.78 + rnd() * .2), S * .08, 2);
+        } else if (sc.kind === 'luxe' || sc.kind === 'gold') {
+            ctx.strokeStyle = sc.frame; ctx.globalAlpha = .55; ctx.lineWidth = 2;
+            for (let i = 0; i < 6; i++) { ctx.strokeRect(S * (.04 + i * .16), S * .03, S * .13, horizon - S * .06); } ctx.globalAlpha = 1;
+        } else if (sc.kind === 'terra') {
+            ctx.fillStyle = 'rgba(120,50,20,.25)'; for (let i = 0; i < 9; i++) for (let j = 0; j < 3; j++) ctx.fillRect(i * S / 9 + 2, j * horizon / 3 + 2, S / 9 - 4, horizon / 3 - 4);
+        } else {
+            ctx.fillStyle = 'rgba(255,255,255,.12)'; for (let i = 0; i < 8; i++) ctx.fillRect(i * S / 8, 0, 2, horizon);
+        }
+        // sol / table
+        const f = ctx.createLinearGradient(0, horizon, 0, S);
+        f.addColorStop(0, sc.floor[1]); f.addColorStop(1, sc.floor[0]);
+        ctx.fillStyle = f; ctx.fillRect(0, horizon, S, S - horizon);
+        if (sc.kind === 'wood' || sc.kind === 'terra' || sc.kind === 'sea' || sc.kind === 'river') {
+            ctx.strokeStyle = 'rgba(0,0,0,.14)'; ctx.lineWidth = 1;
+            for (let i = 0; i < 26; i++) { const y = horizon + (S - horizon) * (i / 26) ** 1.6; ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(S, y); ctx.stroke(); }
+        }
+    }
+    _render3d() {
+        const sc = BoardUI.SCENES[this.scene3d]; const g = this._geo3d(); const S = g.S;
+        // 1) damier à plat (sans pions) sur un canevas hors écran
+        if (!this._flat || this._flat.width !== S) { this._flat = document.createElement('canvas'); this._flat.width = S; this._flat.height = S; }
+        const mainCtx = this.ctx, savedColors = { ...this.colors }, savedStyle = this.squareStyle;
+        this.ctx = this._flat.getContext('2d'); this._collect = [];
+        this.colors.lightSquare = sc.sq[0]; this.colors.darkSquare = sc.sq[1]; this.squareStyle = 'flat';
+        const pieces = this._collect;
+        let flatSize = this.size;
+        try { this._renderFlat(); } finally { this.ctx = mainCtx; this._collect = null; Object.assign(this.colors, savedColors); this.squareStyle = savedStyle; }
+        const ctx = mainCtx; ctx.clearRect(0, 0, S, S);
+        this._sceneBackground(ctx, sc, g);
+        // 2) cadre (trapèze un peu plus grand)
+        const m = 0.28, A = g.fwd(-m, -m), B = g.fwd(8 + m, -m), C = g.fwd(8 + m, 8 + m), D = g.fwd(-m, 8 + m), th = S * 0.022;
+        ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.55)'; ctx.shadowBlur = S * 0.03; ctx.shadowOffsetY = S * 0.015;
+        ctx.fillStyle = this._shade(sc.frame, -0.35); ctx.beginPath(); ctx.moveTo(D.x, D.y + th); ctx.lineTo(C.x, C.y + th); ctx.lineTo(C.x, C.y); ctx.lineTo(D.x, D.y); ctx.closePath(); ctx.fill(); ctx.restore();
+        const fg = ctx.createLinearGradient(0, A.y, 0, D.y); fg.addColorStop(0, this._shade(sc.frame, 0.12)); fg.addColorStop(1, sc.frame);
+        ctx.fillStyle = fg; ctx.beginPath(); ctx.moveTo(A.x, A.y); ctx.lineTo(B.x, B.y); ctx.lineTo(C.x, C.y); ctx.lineTo(D.x, D.y); ctx.closePath(); ctx.fill();
+        // 3) projection du damier : une bande par ligne d'écran
+        const sqF = flatSize / 8;
+        const yTop = Math.floor(g.top), yBot = Math.ceil(g.bot);
+        for (let y = yTop; y < yBot; y++) {
+            const a = g.inv(g.cx, y + 0.5); if (!a) continue;
+            const v0 = Math.max(0, a.v * sqF), sc2 = g.sOf(a.v / 8), wpx = g.near * sc2;
+            const v1 = g.inv(g.cx, y + 1.5); const dv = v1 ? Math.max(0.5, (v1.v - a.v) * sqF) : 1;
+            ctx.drawImage(this._flat, 0, v0, flatSize, dv, g.cx - wpx / 2, y, wpx, 1.4);
+        }
+        // 4) pions : de l'arrière vers l'avant
+        const items = pieces.map(p => { const { row, col } = squareToRowCol(p.square); const dr = this.flipped ? 7 - row : row, dc = this.flipped ? 7 - col : col; return { ...p, dr, dc }; }).sort((a, b) => a.dr - b.dr);
+        const spriteN = 96; if (!this._sprite) { this._sprite = document.createElement('canvas'); this._sprite.width = spriteN; this._sprite.height = spriteN; }
+        for (const p of items) {
+            const c = g.fwd(p.dc + 0.5, p.dr + 0.5); const t = (p.dr + 0.5) / 8;
+            const rx = 0.4 * g.near / 8 * c.sc;
+            const dy = (g.yOf(Math.min(1, t + 0.02)) - g.yOf(t - 0.02)) / 0.04 / 8;      // hauteur d'écran d'une case
+            const ry = 0.4 * dy;
+            const th2 = rx * 0.26, base = p.isWhite ? this.colors.whitePiece : this.colors.blackPiece;
+            // sprite du dessus de pion (style courant) dessiné à plat
+            const sp = this._sprite, sctx = sp.getContext('2d'); sctx.clearRect(0, 0, spriteN, spriteN);
+            const bs = this.size, bsq = this.squareSize, bctx = this.ctx, bflip = this.flipped, bsize = this.squareSize;
+            this.ctx = sctx; this.flipped = false; this.squareSize = spriteN / 2 / 0.4 * 0.4 * 1.25; // rayon = 0.4*squareSize
+            const r0 = spriteN * 0.46; this.squareSize = r0 / 0.4;
+            const { row: r1, col: c1 } = squareToRowCol(1);
+            sctx.save(); sctx.translate(spriteN / 2 - (c1 + 0.5) * this.squareSize, spriteN / 2 - (r1 + 0.5) * this.squareSize);
+            try { this._drawPiece(1, p.isWhite, p.isKing, 1); } finally { sctx.restore(); this.ctx = bctx; this.flipped = bflip; this.squareSize = bsize; }
+            ctx.save(); ctx.globalAlpha = p.opacity;
+            const layers = p.isKing ? 2 : 1;
+            // ombre
+            ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.beginPath(); ctx.ellipse(c.x + rx * 0.15, c.y + ry * 0.2, rx * 1.05, ry * 1.0, 0, 0, 7); ctx.fill();
+            for (let L = 0; L < layers; L++) {
+                const cy = c.y - L * th2 * 1.05;
+                // flanc du cylindre
+                const sg = ctx.createLinearGradient(c.x - rx, 0, c.x + rx, 0); sg.addColorStop(0, this._shade(base, -0.55)); sg.addColorStop(0.45, this._shade(base, -0.15)); sg.addColorStop(1, this._shade(base, -0.6));
+                ctx.fillStyle = sg; ctx.beginPath(); ctx.ellipse(c.x, cy, rx, ry, 0, 0, Math.PI); ctx.lineTo(c.x - rx, cy - th2); ctx.ellipse(c.x, cy - th2, rx, ry, 0, Math.PI, 0, true); ctx.closePath(); ctx.fill();
+                ctx.strokeStyle = this._shade(base, -0.7); ctx.lineWidth = 1; ctx.stroke();
+                // dessus : sprite écrasé en ellipse
+                ctx.drawImage(sp, c.x - rx * (spriteN / (2 * r0)), cy - th2 - ry * (spriteN / (2 * r0)), rx * spriteN / r0, ry * spriteN / r0);
+            }
+            ctx.restore();
+        }
+    }
+
     /**
      * Highlight a square
      */
@@ -458,6 +600,7 @@ export class BoardUI {
      * @param {number} opacity - Opacity (0-1), default 1.0
      */
     _drawPiece(square, isWhite, isKing, opacity = 1.0) {
+        if (this._collect) { this._collect.push({ square, isWhite, isKing, opacity }); return; }
         const { row, col } = squareToRowCol(square);
         const displayRow = this.flipped ? 7 - row : row;
         const displayCol = this.flipped ? 7 - col : col;
@@ -989,13 +1132,14 @@ export class BoardUI {
         const check = (k, l) => `<label style="${ROW}">${l}<input type="checkbox" data-k="${k}" style="margin-left:12px;width:20px;height:20px"></label>`;
         const select = (k, l, opts) => `<label style="${ROW}">${l}<select data-k="${k}" style="margin-left:12px;max-width:150px">${opts.map(([v, t]) => `<option value="${v}">${t}</option>`).join('')}</select></label>`;
         const WOODOPT = [['boisClair', 'Bois clair'], ['noyer', 'Noyer'], ['cerisier', 'Cerisier'], ['cedre', 'Cèdre'], ['ebene', 'Ébène'], ['marbreNoir', 'Marbre noir'], ['marbreVert', 'Marbre vert']];
-        const tabs = [['skins', 'Skins'], ['damier', 'Damier'], ['pieces', 'Pièces'], ['fond', 'Fond'], ['fleches', 'Flèches'], ['affich', 'Affichage']];
+        const tabs = [['skins', 'Skins'], ['damier', 'Damier'], ['pieces', 'Pièces'], ['fond', 'Fond'], ['fleches', 'Flèches'], ['scene', 'Vue 3D'], ['affich', 'Affichage']];
         const pages = {
             skins: '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">' + Object.entries(SK).map(([k, v]) => `<button data-skin="${k}" style="padding:8px 6px;cursor:pointer">${v.name}</button>`).join('') + '</div><div style="height:8px"></div><button data-reset style="padding:5px 10px;cursor:pointer">Tout remettre par défaut</button>',
             damier: select('squareStyle', 'Cases', [['flat', 'Couleurs unies'], ['boisClassique', 'Bois clair/foncé'], ['boisSombre', 'Bois et ébène'], ['marbreNoir', 'Marbre noir et crème'], ['marbreVert', 'Marbre vert'], ['marbreRouge', 'Marbre rouge']]) + color('lightSquare', 'Cases claires') + color('darkSquare', 'Cases foncées') + select('frame', 'Cadre', [['none', 'Par défaut'], ['color', 'Couleur unie'], ...WOODOPT]) + color('frameColor', 'Couleur du cadre') + color('hiLast', 'Dernier coup (case)') + color('hiSel', 'Case choisie') + check('showNumbers', 'Numéros des cases (1-32)') + color('numberColor', 'Couleur des numéros'),
             pieces: select('pieceStyle', 'Style des pions', [['relief', 'Relief'], ['flat', 'Plat'], ['ring', 'Anneau'], ['anneaux', 'Anneaux (photo)'], ['disc3d', 'Disque 3D'], ['jeton', 'Jeton'], ['bouton', 'Bouton'], ['gemme', 'Gemme'], ['verre', 'Verre'], ['metal', 'Métal'], ['brillant', 'Brillant (liseré doré)']]) + color('whitePiece', 'Pions blancs') + color('blackPiece', 'Pions noirs') + color('kingMark', 'Marque des dames'),
             fond: select('bg', 'Fond de la page', [['none', 'Par défaut'], ...WOODOPT, ['ardoise', 'Ardoise'], ['feutre', 'Feutre vert'], ['nuit', 'Nuit bleue']]),
             fleches: check('showArrow', 'Flèches (dernier coup / meilleur coup)') + color('arrLast', 'Dernier coup joué') + color('arrBest', 'Meilleur coup') + `<label style="${ROW}">Épaisseur<input type="range" data-k="arrW" min="50" max="170" step="5" style="margin-left:12px;width:120px"></label>`,
+            scene: '<div style="font-size:12px;margin-bottom:6px">Choisissez une scène 3D (ou « Damier 2D »).</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">' + BoardUI.SCENE_ORDER.map(k => `<button data-scene="${k}" style="padding:8px 6px;cursor:pointer">${k === '2d' ? 'Damier 2D' : BoardUI.SCENES[k].name}</button>`).join('') + '</div>',
             affich: `<label style="${ROW}">Taille du damier<input type="range" data-k="boardSize" min="300" max="1000" step="10" style="margin-left:12px;width:120px"></label>` + check('focusMode', 'Grand damier (masque les panneaux)')
         };
         let html = '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px">' + tabs.map(([k, l]) => `<button data-tab="${k}" style="padding:5px 8px;cursor:pointer;border:1px solid #aaa;border-radius:6px;background:#eee;color:#222">${l}</button>`).join('') + '</div>';
@@ -1026,6 +1170,7 @@ export class BoardUI {
         });
         panel.addEventListener('click', (e) => {
             const t = e.target.closest('[data-tab]'); if (t) { showTab(t.dataset.tab); return; }
+            const sc3 = e.target.closest('[data-scene]'); if (sc3) { this.setScene(sc3.dataset.scene); return; }
             const sk = e.target.closest('[data-skin]');
             if (sk) {
                 const S = SK[sk.dataset.skin];
@@ -1075,59 +1220,23 @@ export class BoardUI {
     /**
      * Handle click events
      */
-    _handleClick(e) {
+    _handleClick(e) { this._clickAt(e.clientX, e.clientY); }
+    _handleTouch(touch) { this._clickAt(touch.clientX, touch.clientY); }
+    _clickAt(cx, cy) {
         const rect = this.canvas.getBoundingClientRect();
-        // Account for CSS scaling (canvas may be displayed smaller than its internal size)
-        const scaleX = this.canvas.width / rect.width;
-        const scaleY = this.canvas.height / rect.height;
-        const x = (e.clientX - rect.left) * scaleX;
-        const y = (e.clientY - rect.top) * scaleY;
-
-        // Convert to row/col
-        let col = Math.floor(x / this.squareSize);
-        let row = Math.floor(y / this.squareSize);
-
-        // Handle flipped board
-        if (this.flipped) {
-            row = 7 - row;
-            col = 7 - col;
+        const x = (cx - rect.left) * (this.canvas.width / rect.width);
+        const y = (cy - rect.top) * (this.canvas.height / rect.height);
+        let col, row;
+        if (this.scene3d && this.scene3d !== '2d') {
+            const g = this._geo3d(); const u = g.inv(x, y);
+            if (!u || u.u < 0 || u.u >= 8 || u.v < 0 || u.v >= 8) return;
+            col = Math.floor(u.u); row = Math.floor(u.v);
+        } else {
+            col = Math.floor(x / this.squareSize); row = Math.floor(y / this.squareSize);
         }
-
-        // Convert to square number
+        if (this.flipped) { row = 7 - row; col = 7 - col; }
         const square = rowColToSquare(row, col);
-
-        if (square > 0 && this.onClick) {
-            this.onClick(square);
-        }
-    }
-
-    /**
-     * Handle touch events
-     */
-    _handleTouch(touch) {
-        const rect = this.canvas.getBoundingClientRect();
-        // Account for CSS scaling (canvas may be displayed smaller than its internal size)
-        const scaleX = this.canvas.width / rect.width;
-        const scaleY = this.canvas.height / rect.height;
-        const x = (touch.clientX - rect.left) * scaleX;
-        const y = (touch.clientY - rect.top) * scaleY;
-
-        // Convert to row/col
-        let col = Math.floor(x / this.squareSize);
-        let row = Math.floor(y / this.squareSize);
-
-        // Handle flipped board
-        if (this.flipped) {
-            row = 7 - row;
-            col = 7 - col;
-        }
-
-        // Convert to square number
-        const square = rowColToSquare(row, col);
-
-        if (square > 0 && this.onClick) {
-            this.onClick(square);
-        }
+        if (square > 0 && this.onClick) this.onClick(square);
     }
 
     /**

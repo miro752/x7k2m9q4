@@ -62,10 +62,10 @@ const D = [
 ['Vider', 'Clear', 'Vaciar', 'تفريغ'],
 ['Trait :', 'Side to move:', 'Turno:', 'الدور:'],
 ['Terminé', 'Done', 'Hecho', 'تم'],
-['Moteur', 'Engine', 'Motor', 'المحرك'],
+['Engine', 'Engine', 'Motor', 'المحرك'],
 ['Cliquez pour changer', 'Click to change', 'Haga clic para cambiar', 'انقر للتغيير'],
-['Moteur blancs (B)', 'Engine White (B)', 'Motor blancas (B)', 'المحرك أبيض (B)'],
-['Moteur noirs (N)', 'Engine Black (N)', 'Motor negras (N)', 'المحرك أسود (N)'],
+['Engine blancs (B)', 'Engine White (B)', 'Motor blancas (B)', 'المحرك أبيض (B)'],
+['Engine noirs (N)', 'Engine Black (N)', 'Motor negras (N)', 'المحرك أسود (N)'],
 ['2 joueurs (J)', '2 players (J)', '2 jugadores (J)', 'لاعبان (J)'],
 ['Raccourci : B', 'Shortcut: B', 'Atajo: B', 'اختصار: B'], ['Raccourci : N', 'Shortcut: N', 'Atajo: N', 'اختصار: N'],
 ['Raccourci : J', 'Shortcut: J', 'Atajo: J', 'اختصار: J'], ['Raccourci : R', 'Shortcut: R', 'Atajo: R', 'اختصار: R'],
@@ -346,7 +346,7 @@ const M = {
     'clock.normal': { fr: 'Partie : {m} min + {i} s/coup', en: 'Game: {m} min + {i} s/move', es: 'Partida: {m} min + {i} s/jugada', ar: 'المباراة: {m} د + {i} ث/حركة' },
     'clock.tourn': { fr: 'Tournoi : {m} min pour {n} coups', en: 'Tournament: {m} min for {n} moves', es: 'Torneo: {m} min por {n} jugadas', ar: 'بطولة: {m} د لكل {n} حركة' },
     'clock.flag': { fr: 'temps écoulé', en: 'time out', es: 'tiempo agotado', ar: 'انتهى الوقت' },
-    'clock.pm': { fr: '+{s}s/coup', en: '+{s}s/move', es: '+{s}s/jugada', ar: '+{s}ث/حركة' },
+    'clock.pm': { fr: 'Réflexion {s} s/coup', en: '+{s}s/move', es: '+{s}s/jugada', ar: '+{s}ث/حركة' },
 };
 
 let lang = 'fr';

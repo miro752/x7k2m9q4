@@ -1252,3 +1252,8 @@ body.focus-board .app-header, body.match-play .app-tag { }
 #download-dialog .progress-bar { background: rgba(255,255,255,.12); }
 #download-dialog .progress-bar .progress { background: linear-gradient(90deg, #f0c35e, #c98a12); }
 #download-dialog .status { color: #b9c4d0; }
+
+#board-container{position:relative}
+#mate-overlay{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font:900 clamp(60px,16vw,140px)/1 Arial,sans-serif;color:rgba(255,255,255,.38);text-shadow:0 0 12px rgba(0,0,0,.35);pointer-events:none;z-index:5;display:none;letter-spacing:-2px}
+#mate-overlay.lose{color:rgba(255,120,120,.38)}
+.think-note{font-size:.8em;opacity:.8}
