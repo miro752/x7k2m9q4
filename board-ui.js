@@ -123,9 +123,9 @@ export class BoardUI {
 
         // Colors
         this.colors = {
-            lightSquare: '#F0D9B5',
-            darkSquare: '#B58863',
-            whitePiece: '#FFFFFF',
+            lightSquare: '#e8eef4',
+            darkSquare: '#4a6a8a',
+            whitePiece: '#1fbf2a',
             whitePieceStroke: '#333333',
             blackPiece: '#333333',
             blackPieceStroke: '#000000',
@@ -135,13 +135,13 @@ export class BoardUI {
             partialPath: 'rgba(255, 165, 0, 0.5)',  // Orange for intermediate capture squares
             selectedOutline: 'rgba(255, 0, 0, 0.85)',   // Red outline for selected squares
             validOutline: 'rgba(255, 165, 0, 0.85)',     // Orange outline for valid next squares
-            kingMark: '#FFD700'
+            kingMark: '#ffd45a'
         };
 
         // Personnalisation (couleurs du damier et des pions), gardée dans le navigateur
-        this.pieceStyle = 'relief';
+        this.pieceStyle = 'brillant';
         this.squareStyle = 'flat';   // 'flat' (couleurs unies) ou un marbre
-        this.showNumbers = false;
+        this.showNumbers = true;
         this.showArrow = true;
         this.boardSize = 560;     // taille du damier en pixels (réglable)
         this.focusMode = false;   // mode grand damier : panneaux masqués
@@ -820,7 +820,7 @@ export class BoardUI {
                 if (typeof o.showArrow === 'boolean') this.showArrow = o.showArrow;
                 if (typeof o.boardSize === 'number' && o.boardSize >= 260 && o.boardSize <= 1400) this.boardSize = o.boardSize;
                 if (typeof o.focusMode === 'boolean') this.focusMode = o.focusMode && window.innerWidth > 1000;
-                if (o.look && typeof o.look === 'object') Object.assign(this.look, o.look);
+                if (o.look && typeof o.look === 'object') Object.assign(this.look, o.look); else { this.look.bg = 'none'; this.look.frame = 'none'; }
             }
         } catch (e) {}
         this._deriveStrokes();
@@ -842,7 +842,7 @@ export class BoardUI {
     }
     // ---------- Fond, cadre, bois : textures générées (aucun fichier) ----------
     static get DEFAULT_LOOK() {
-        return { bg: 'none', frame: 'none', frameColor: '#6b4226', numberColor: '', hiLast: '', hiSel: '', arrBest: '#2ee62e', arrLast: '#ffb020', arrW: 100 };
+        return { bg: 'ardoise', frame: 'ebene', frameColor: '#6b4226', numberColor: '', hiLast: '', hiSel: '', arrBest: '#2ee62e', arrLast: '#ffb020', arrW: 100 };
     }
     static get WOODS() {
         return {
@@ -951,15 +951,18 @@ export class BoardUI {
             else bc.style.background = '';
             bc.style.padding = L.frame !== 'none' ? '0.8rem' : '';
         }
+        const rs = document.documentElement.style;
+        rs.setProperty('--pc-w', this.colors.whitePiece); rs.setProperty('--pc-b', this.colors.blackPiece); rs.setProperty('--pc-k', this.colors.kingMark);
         this.colors.lastMove = L.hiLast ? this._hexA(L.hiLast, 0.5) : 'rgba(155, 199, 0, 0.4)';
         this.colors.selected = L.hiSel ? this._hexA(L.hiSel, 0.55) : 'rgba(255, 255, 0, 0.5)';
     }
 
     _buildCustomPanel() {
         if (typeof document === 'undefined' || document.getElementById('custom-btn')) return;
-        const DEF = { lightSquare: '#F0D9B5', darkSquare: '#B58863', whitePiece: '#FFFFFF', blackPiece: '#333333', kingMark: '#FFD700', pieceStyle: 'relief' };
+        const DEF = { lightSquare: '#e8eef4', darkSquare: '#4a6a8a', whitePiece: '#1fbf2a', blackPiece: '#1b1b1b', kingMark: '#ffd45a', pieceStyle: 'brillant' };
         const SK = {
-            classique: { name: 'Classique', colors: DEF, pieceStyle: 'relief', squareStyle: 'flat', numbers: false, look: {} },
+            nouveau: { name: 'Nouveau', colors: DEF, pieceStyle: 'brillant', squareStyle: 'flat', numbers: true, look: { bg: 'ardoise', frame: 'ebene' } },
+            classique: { name: 'Ancien', colors: { lightSquare: '#F0D9B5', darkSquare: '#B58863', whitePiece: '#FFFFFF', blackPiece: '#333333', kingMark: '#FFD700' }, pieceStyle: 'relief', squareStyle: 'flat', numbers: false, look: { bg: 'none', frame: 'none' } },
             bois:      { name: 'Bois', colors: { lightSquare: '#F0D9B5', darkSquare: '#B58863', whitePiece: '#f3e8d0', blackPiece: '#3b2a1e', kingMark: '#ffd45a' }, pieceStyle: 'relief', squareStyle: 'boisClassique', numbers: true, look: { bg: 'noyer', frame: 'ebene' } },
             marbre:    { name: 'Marbre', colors: { whitePiece: '#cdd2da', blackPiece: '#d9a62e', kingMark: '#ffe08a' }, pieceStyle: 'metal', squareStyle: 'marbreNoir', numbers: true, look: { bg: 'ardoise', frame: 'marbreNoir' } },
             brillant:  { name: 'Brillant', colors: { lightSquare: '#d3a96b', darkSquare: '#c19347', whitePiece: '#1fbf2a', blackPiece: '#1b1b1b', kingMark: '#ffd45a' }, pieceStyle: 'brillant', squareStyle: 'flat', numbers: true, look: { bg: 'cedre' } },
@@ -1032,8 +1035,8 @@ export class BoardUI {
                 redo(); sync(); return;
             }
             if (e.target.closest('[data-reset]')) {
-                Object.assign(this.colors, DEF); this.pieceStyle = 'relief'; this.squareStyle = 'flat';
-                this.showNumbers = false; this.showArrow = true; this.boardSize = 560; this.focusMode = false;
+                Object.assign(this.colors, DEF); this.pieceStyle = 'brillant'; this.squareStyle = 'flat';
+                this.showNumbers = true; this.showArrow = true; this.boardSize = 560; this.focusMode = false;
                 this.look = Object.assign({}, BoardUI.DEFAULT_LOOK);
                 redo(); sync(); this.applySize(); zoomBtn.textContent = '\u{1F50D} Agrandir'; return;
             }

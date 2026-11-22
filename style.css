@@ -1219,3 +1219,36 @@ body.focus-board .app-header, body.match-play .app-tag { }
 .help-body details { border:1px solid #c9a56e; border-radius:8px; background:#fbf2de; margin:.35rem 0; padding:.1rem .6rem; }
 .help-body summary { cursor:pointer; font-weight:700; color:#6b3f1a; padding:.4rem 0; }
 .help-body p { margin:.2rem 0 .6rem; font-size:.9rem; line-height:1.45; color:#4a2d12; }
+
+/* Nouveau look : palette du mode Problème (suit les couleurs des pions) */
+.piece-icon.white-man, .piece-icon.white-king {
+    background: radial-gradient(circle at 34% 28%, rgba(255,255,255,.85) 0 9%, var(--pc-w, #1fbf2a) 40%, color-mix(in srgb, var(--pc-w, #1fbf2a) 38%, #000) 100%);
+    border: 3px solid #e2b23a; box-shadow: 0 1px 3px rgba(0,0,0,.55), inset 0 -2px 3px rgba(0,0,0,.35);
+}
+.piece-icon.black-man, .piece-icon.black-king {
+    background: radial-gradient(circle at 34% 28%, rgba(255,255,255,.7) 0 8%, var(--pc-b, #1b1b1b) 38%, color-mix(in srgb, var(--pc-b, #1b1b1b) 30%, #000) 100%);
+    border: 3px solid #e2b23a; box-shadow: 0 1px 3px rgba(0,0,0,.55), inset 0 -2px 3px rgba(0,0,0,.45);
+}
+.piece-icon.white-king, .piece-icon.black-king { position: relative; }
+.piece-icon.white-king::after, .piece-icon.black-king::after { content: '♛'; position: absolute; inset: 0; text-align: center; color: var(--pc-k, #ffd45a); font-size: 17px; line-height: 30px; text-shadow: 0 1px 1px #000; }
+.prob-palette .piece-icon.white-king::after, .prob-palette .piece-icon.black-king::after { font-size: 22px; line-height: 30px; }
+.piece-icon.empty { border-color: #8a5a2a; }
+
+/* Finales : coffre en ardoise et or (look propre à SAM_brk) */
+.control-group.tb-vault { background: linear-gradient(160deg, #26323f, #141b24); border: 2px solid #d9a93f; box-shadow: 0 6px 16px rgba(0,0,0,.5), inset 0 0 0 1px rgba(255,255,255,.06); color: #e9edf2; }
+.tb-vault h3 { color: #f0c35e; border-bottom: 1px solid rgba(240,195,94,.45); letter-spacing: .2em; }
+.tb-intro { margin: .4rem 0 .7rem; font-size: .8rem; line-height: 1.35; color: #b9c4d0; }
+.tb-tile { display: flex; align-items: center; gap: .7rem; width: 100%; margin: .45rem 0; padding: .55rem .7rem; cursor: pointer; text-align: left; border-radius: 12px; border: 1px solid rgba(240,195,94,.4); background: linear-gradient(135deg, rgba(255,255,255,.09), rgba(255,255,255,.02)); color: #e9edf2; font: inherit; transition: transform .12s, border-color .12s, background .12s; }
+.tb-tile:hover { transform: translateY(-1px); border-color: #f0c35e; background: linear-gradient(135deg, rgba(240,195,94,.22), rgba(255,255,255,.03)); }
+.tb-badge { flex: none; width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; font-size: .8rem; letter-spacing: .05em; color: #2a1c05; background: radial-gradient(circle at 34% 28%, #fff0b8 0 10%, #f0c35e 45%, #b9801a 100%); box-shadow: 0 2px 4px rgba(0,0,0,.5); }
+.tb-text { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.tb-text b { font-size: .95rem; color: #fff; }
+.tb-text small { font-size: .74rem; color: #aebbc9; margin-top: .1rem; }
+.tb-go { flex: none; font-size: 1.15rem; color: #f0c35e; }
+.tb-clear { width: 100%; margin-top: .5rem; padding: .4rem; background: transparent; border: 1px dashed rgba(255,130,110,.6); border-radius: 10px; color: #ff9d8c; cursor: pointer; font: inherit; font-size: .8rem; }
+.tb-clear:hover { background: rgba(255,90,70,.14); }
+#download-dialog .dialog-content { background: linear-gradient(160deg, #26323f, #141b24); border: 2px solid #d9a93f; color: #e9edf2; }
+#download-dialog .dialog-content h2 { color: #f0c35e; }
+#download-dialog .progress-bar { background: rgba(255,255,255,.12); }
+#download-dialog .progress-bar .progress { background: linear-gradient(90deg, #f0c35e, #c98a12); }
+#download-dialog .status { color: #b9c4d0; }

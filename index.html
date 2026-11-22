@@ -22,7 +22,7 @@
     <!-- Loading screen -->
     <div id="loading" class="loading-container">
         <div class="loading-content">
-            <svg class="emblem emblem-big" viewBox="0 0 64 64" aria-hidden="true"><defs><radialGradient id="emg" cx="35%" cy="30%" r="75%"><stop offset="0" stop-color="#6b3f1a"/><stop offset="1" stop-color="#2a1608"/></radialGradient><linearGradient id="emc" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe08a"/><stop offset="1" stop-color="#d18a1f"/></linearGradient></defs><circle cx="32" cy="32" r="29" fill="url(#emg)" stroke="url(#emc)" stroke-width="3"/><circle cx="32" cy="32" r="21" fill="none" stroke="#f0b25a" stroke-opacity=".55" stroke-width="1.5"/><path d="M16 40 L19 25 L26 33 L32 21 L38 33 L45 25 L48 40 Z" fill="url(#emc)" stroke="#8a5420" stroke-width="1.2" stroke-linejoin="round"/><rect x="16" y="41" width="32" height="5" rx="2" fill="url(#emc)" stroke="#8a5420" stroke-width="1.2"/></svg>
+            <svg class="emblem emblem-big" viewBox="0 0 64 64" aria-hidden="true"><defs><radialGradient id="g1a" cx="35%" cy="30%" r="75%"><stop offset="0" stop-color="#9dff9f"/><stop offset=".45" stop-color="#1fbf2a"/><stop offset="1" stop-color="#075c10"/></radialGradient><radialGradient id="g2a" cx="35%" cy="30%" r="75%"><stop offset="0" stop-color="#8c8c8c"/><stop offset=".45" stop-color="#262626"/><stop offset="1" stop-color="#000"/></radialGradient><linearGradient id="goa" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffe9a0"/><stop offset="1" stop-color="#c98a12"/></linearGradient></defs><circle cx="23" cy="41" r="17" fill="url(#g2a)" stroke="url(#goa)" stroke-width="3.5"/><circle cx="41" cy="23" r="17" fill="url(#g1a)" stroke="url(#goa)" stroke-width="3.5"/><ellipse cx="35" cy="16" rx="6" ry="3.2" fill="#fff" opacity=".45"/><ellipse cx="17" cy="34" rx="5" ry="2.6" fill="#fff" opacity=".3"/></svg>
             <h1>SAM_brk</h1>
             <p class="tagline">Dames · Damas · Checkers</p>
             <div class="spinner"></div>
@@ -33,7 +33,7 @@
     <!-- Main game container -->
     <div id="game-container" class="game-container" style="display: none;">
         <header id="app-header" class="app-header">
-            <button id="app-logo" class="app-logo" type="button" title="À propos de SAM_brk"><svg class="emblem" viewBox="0 0 64 64" aria-hidden="true"><defs><radialGradient id="emg" cx="35%" cy="30%" r="75%"><stop offset="0" stop-color="#6b3f1a"/><stop offset="1" stop-color="#2a1608"/></radialGradient><linearGradient id="emc" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe08a"/><stop offset="1" stop-color="#d18a1f"/></linearGradient></defs><circle cx="32" cy="32" r="29" fill="url(#emg)" stroke="url(#emc)" stroke-width="3"/><circle cx="32" cy="32" r="21" fill="none" stroke="#f0b25a" stroke-opacity=".55" stroke-width="1.5"/><path d="M16 40 L19 25 L26 33 L32 21 L38 33 L45 25 L48 40 Z" fill="url(#emc)" stroke="#8a5420" stroke-width="1.2" stroke-linejoin="round"/><rect x="16" y="41" width="32" height="5" rx="2" fill="url(#emc)" stroke="#8a5420" stroke-width="1.2"/></svg><span class="wordmark">SAM<span class="wm-u">_</span>brk</span></button>
+            <button id="app-logo" class="app-logo" type="button" title="À propos de SAM_brk"><svg class="emblem" viewBox="0 0 64 64" aria-hidden="true"><defs><radialGradient id="g1b" cx="35%" cy="30%" r="75%"><stop offset="0" stop-color="#9dff9f"/><stop offset=".45" stop-color="#1fbf2a"/><stop offset="1" stop-color="#075c10"/></radialGradient><radialGradient id="g2b" cx="35%" cy="30%" r="75%"><stop offset="0" stop-color="#8c8c8c"/><stop offset=".45" stop-color="#262626"/><stop offset="1" stop-color="#000"/></radialGradient><linearGradient id="gob" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffe9a0"/><stop offset="1" stop-color="#c98a12"/></linearGradient></defs><circle cx="23" cy="41" r="17" fill="url(#g2b)" stroke="url(#gob)" stroke-width="3.5"/><circle cx="41" cy="23" r="17" fill="url(#g1b)" stroke="url(#gob)" stroke-width="3.5"/><ellipse cx="35" cy="16" rx="6" ry="3.2" fill="#fff" opacity=".45"/><ellipse cx="17" cy="34" rx="5" ry="2.6" fill="#fff" opacity=".3"/></svg><span class="wordmark">SAM<span class="wm-u">_</span>brk</span></button>
             <span class="app-tag">Jeu de dames · analyse · base de parties</span>
             <button id="btn-help" class="btn btn-small help-btn" type="button" title="Explications de toutes les fonctions">❓ Aide</button>
         </header>
@@ -207,13 +207,20 @@
                 </div>
 
                 <!-- Tablebases -->
-                <div class="control-group">
+                <div class="control-group tb-vault">
                     <h3>Finales</h3>
-                    <button id="btn-download-tb" class="btn">Télécharger DTM 5-7 pièces</button>
-                    <p class="help-text">Finales parfaites (~300 Mo)</p>
-                    <button id="btn-download-cwdl" class="btn">Télécharger WDL 6-8 pièces</button>
-                    <p class="help-text">Gain/Nulle/Perte (~470 Mo)</p>
-                    <button id="btn-clear-tb" class="btn btn-danger">Supprimer les finales téléchargées</button>
+                    <p class="tb-intro">Bibliothèque de finales : le moteur joue les fins de partie sans erreur.</p>
+                    <button id="btn-download-tb" class="tb-tile" type="button">
+                        <span class="tb-badge">DTM</span>
+                        <span class="tb-text"><b>5 à 7 pièces</b><small>Finales parfaites · ≈ 300 Mo</small></span>
+                        <span class="tb-go">⬇</span>
+                    </button>
+                    <button id="btn-download-cwdl" class="tb-tile" type="button">
+                        <span class="tb-badge">WDL</span>
+                        <span class="tb-text"><b>6 à 8 pièces</b><small>Gain · nulle · perte · ≈ 470 Mo</small></span>
+                        <span class="tb-go">⬇</span>
+                    </button>
+                    <button id="btn-clear-tb" class="tb-clear" type="button">🗑 Supprimer les finales téléchargées</button>
                 </div>
             </section>
         </main>
@@ -273,7 +280,7 @@
     <!-- À propos -->
     <div id="about-dialog" class="dialog" style="display: none;">
         <div class="dialog-content dialog-narrow about">
-            <svg class="emblem emblem-big" viewBox="0 0 64 64" aria-hidden="true"><defs><radialGradient id="emg" cx="35%" cy="30%" r="75%"><stop offset="0" stop-color="#6b3f1a"/><stop offset="1" stop-color="#2a1608"/></radialGradient><linearGradient id="emc" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe08a"/><stop offset="1" stop-color="#d18a1f"/></linearGradient></defs><circle cx="32" cy="32" r="29" fill="url(#emg)" stroke="url(#emc)" stroke-width="3"/><circle cx="32" cy="32" r="21" fill="none" stroke="#f0b25a" stroke-opacity=".55" stroke-width="1.5"/><path d="M16 40 L19 25 L26 33 L32 21 L38 33 L45 25 L48 40 Z" fill="url(#emc)" stroke="#8a5420" stroke-width="1.2" stroke-linejoin="round"/><rect x="16" y="41" width="32" height="5" rx="2" fill="url(#emc)" stroke="#8a5420" stroke-width="1.2"/></svg>
+            <svg class="emblem emblem-big" viewBox="0 0 64 64" aria-hidden="true"><defs><radialGradient id="g1c" cx="35%" cy="30%" r="75%"><stop offset="0" stop-color="#9dff9f"/><stop offset=".45" stop-color="#1fbf2a"/><stop offset="1" stop-color="#075c10"/></radialGradient><radialGradient id="g2c" cx="35%" cy="30%" r="75%"><stop offset="0" stop-color="#8c8c8c"/><stop offset=".45" stop-color="#262626"/><stop offset="1" stop-color="#000"/></radialGradient><linearGradient id="goc" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffe9a0"/><stop offset="1" stop-color="#c98a12"/></linearGradient></defs><circle cx="23" cy="41" r="17" fill="url(#g2c)" stroke="url(#goc)" stroke-width="3.5"/><circle cx="41" cy="23" r="17" fill="url(#g1c)" stroke="url(#goc)" stroke-width="3.5"/><ellipse cx="35" cy="16" rx="6" ry="3.2" fill="#fff" opacity=".45"/><ellipse cx="17" cy="34" rx="5" ry="2.6" fill="#fff" opacity=".3"/></svg>
             <h2>SAM_brk</h2>
             <p class="dialog-label">Votre atelier personnel de jeu de dames.</p>
             <p class="help-text">Parties et base de données jusqu'à 40 000 parties, recherche par joueur, par coups ou par position, horloges, mémoire des erreurs, analyse étendue, quatre langues, fonctionne hors connexion.</p>
