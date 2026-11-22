@@ -1598,8 +1598,11 @@ function setupBook() {
     }
     // le moteur joue d'abord le livre personnel
     const prev = turnController.errorMemoryHook;
+    const chk = $('chk-use-mybook');
+    try { if (chk) chk.checked = localStorage.getItem('sambrk.usemybook') !== '0'; } catch (e) {}
+    if (chk) chk.addEventListener('change', () => { try { localStorage.setItem('sambrk.usemybook', chk.checked ? '1' : '0'); } catch (e) {} });
     turnController.errorMemoryHook = (board, best) => {
-        const l = bookLoad()[bookKey(board)];
+        const l = (chk && !chk.checked) ? null : bookLoad()[bookKey(board)];
         if (l && l.length) {
             const legal = (gameState.board && bookKey(gameState.board) === bookKey(board)) ? (gameState.legalMoves || []) : [];
             const cands = legal.filter(m => l.includes(m.notation));

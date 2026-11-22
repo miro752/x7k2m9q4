@@ -263,6 +263,7 @@ const D = [
 ['🗑 Supprimer les finales téléchargées', '🗑 Delete downloaded endgames', '🗑 Borrar los finales descargados', '🗑 حذف النهايات المحمّلة'],
 ['Ancien', 'Old', 'Antiguo', 'قديم'],
 ['Nouveau', 'New', 'Nuevo', 'جديد'],
+['Utiliser mon livre personnel', 'Use my personal book', 'Usar mi libro personal', 'استخدام كتابي الشخصي'],
 ['Nom du joueur (blancs ou noirs)', 'Player name (white or black)', 'Nombre del jugador (blancas o negras)', 'اسم اللاعب (أبيض أو أسود)'],
 ['À propos de SAM_brk', 'About SAM_brk', 'Acerca de SAM_brk', 'حول SAM_brk'],
 ['Jeu de dames · analyse · base de parties', 'Draughts · analysis · game database', 'Damas · análisis · base de partidas', 'لعبة الداما · تحليل · قاعدة مباريات'],
