@@ -1270,3 +1270,8 @@ body.focus-board .app-header, body.match-play .app-tag { }
     .emblem { width: 28px; height: 28px; }
     .wordmark { font-size: 1.2rem; }
 }
+
+/* paysage téléphone : boutons flottants toujours dans les coins, jamais sur le damier */
+body.land-small #custom-btn, body.land-small #zoom-btn { font-size: 12px !important; padding: 5px 9px !important; bottom: 6px !important; opacity: .9; }
+body.land-small #custom-btn { right: 6px !important; left: auto !important; }
+body.land-small #zoom-btn { right: auto !important; left: 6px !important; }
