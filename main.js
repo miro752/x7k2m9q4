@@ -1612,6 +1612,14 @@ function setupBook() {
     const chk = $('chk-use-mybook');
     try { if (chk) chk.checked = localStorage.getItem('sambrk.usemybook') !== '0'; } catch (e) {}
     if (chk) chk.addEventListener('change', () => { try { localStorage.setItem('sambrk.usemybook', chk.checked ? '1' : '0'); } catch (e) {} });
+    turnController.preSearchHook = (board) => {
+        if (chk && !chk.checked) return null;
+        const l = bookLoad()[bookKey(board)];
+        if (!l || !l.length || bookKey(gameState.board) !== bookKey(board)) return null;
+        const cands = (gameState.legalMoves || []).filter(m => l.includes(m.notation));
+        if (!cands.length) return null;
+        return { bestMove: cands[Math.floor(Math.random() * cands.length)], book: true, score: 0, depth: 0 };
+    };
     turnController.errorMemoryHook = (board, best) => {
         const l = (chk && !chk.checked) ? null : bookLoad()[bookKey(board)];
         if (l && l.length) {

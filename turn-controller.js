@@ -186,7 +186,10 @@ export class TurnController extends EventTarget {
     async _startEngineSearch() {
         const board = this.gameState.board;
         const searchStart = Date.now();
-        const result = await this.searchManager.startSearch(board);
+        // Livre personnel : coup joué tout de suite, sans calcul
+        let result = null;
+        try { if (this.preSearchHook) result = this.preSearchHook(board); } catch (e) { console.warn('preSearchHook:', e); }
+        if (!result) result = await this.searchManager.startSearch(board);
 
         if (!result || result.error) {
             if (result && result.error) {
