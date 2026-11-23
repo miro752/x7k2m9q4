@@ -21,7 +21,7 @@ if (typeof window === 'undefined') {
         }
     });
 
-    const CACHE = "sambrk-v41";
+    const CACHE = "sambrk-v42";
     const PRECACHE = ["./", "index.html", "style.css", "main.js", "board-ui.js", "engine-api.js", "engine-worker.js", "engine.js", "engine.wasm", "engine.worker.js",
         "game-state.js", "game-storage.js", "fastgame.js", "i18n.js", "clock.js", "move-input.js", "search-manager.js", "sound.js", "tablebase-loader.js", "turn-controller.js",
         "models/model_007.bin", "opening-a822ebc72d1b.cbook", "openings.txt", "favicon.ico", "manifest.json", "icon-192.png", "icon-512.png"];

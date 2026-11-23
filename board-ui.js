@@ -148,7 +148,7 @@ export class BoardUI {
         this.arrow = null;   // {from,to} flèche du meilleur coup
         this.look = Object.assign({}, BoardUI.DEFAULT_LOOK);
         this._loadCustom();
-        try { this.scene3d = localStorage.getItem('damas.scene') || '2d'; this.tilt3d = parseInt(localStorage.getItem('damas.tilt') || '1'); } catch (e) { this.scene3d = '2d'; this.tilt3d = 1; }
+        try { this.scene3d = localStorage.getItem('damas.scene') || '2d'; this.tilt3d = parseInt(localStorage.getItem('damas.tilt') || '1'); this.sceneSq = localStorage.getItem('damas.scenesq') === 'scene' ? 'scene' : 'mine'; } catch (e) { this.scene3d = '2d'; this.tilt3d = 1; this.sceneSq = 'mine'; }
         this._buildCustomPanel();
 
         // Event handling
@@ -439,6 +439,7 @@ export class BoardUI {
         try { localStorage.setItem('damas.scene', this.scene3d); } catch (e) {}
         this.render();
     }
+    setSceneSq(v) { this.sceneSq = v; try { localStorage.setItem('damas.scenesq', v); } catch (e) {} this.render(); }
     setTilt(n) { this.tilt3d = n; try { localStorage.setItem('damas.tilt', String(n)); } catch (e) {} this.render(); }
     // géométrie : cases (u,v) -> écran, avec perspective sur l'axe vertical
     _geo3d() {
@@ -507,7 +508,7 @@ export class BoardUI {
         if (!this._flat || this._flat.width !== S) { this._flat = document.createElement('canvas'); this._flat.width = S; this._flat.height = S; }
         const mainCtx = this.ctx, savedColors = { ...this.colors }, savedStyle = this.squareStyle;
         this.ctx = this._flat.getContext('2d'); this._collect = [];
-        this.colors.lightSquare = sc.sq[0]; this.colors.darkSquare = sc.sq[1]; this.squareStyle = 'flat';
+        if (this.sceneSq === 'scene') { this.colors.lightSquare = sc.sq[0]; this.colors.darkSquare = sc.sq[1]; this.squareStyle = 'flat'; }
         const pieces = this._collect;
         let flatSize = this.size;
         try { this._renderFlat(); } finally { this.ctx = mainCtx; this._collect = null; Object.assign(this.colors, savedColors); this.squareStyle = savedStyle; }
@@ -1144,7 +1145,7 @@ export class BoardUI {
             pieces: select('pieceStyle', 'Style des pions', [['relief', 'Relief'], ['flat', 'Plat'], ['ring', 'Anneau'], ['anneaux', 'Anneaux (photo)'], ['disc3d', 'Disque 3D'], ['jeton', 'Jeton'], ['bouton', 'Bouton'], ['gemme', 'Gemme'], ['verre', 'Verre'], ['metal', 'Métal'], ['brillant', 'Brillant (liseré doré)']]) + color('whitePiece', 'Pions blancs') + color('blackPiece', 'Pions noirs') + color('kingMark', 'Marque des dames'),
             fond: select('bg', 'Fond de la page', [['none', 'Par défaut'], ...WOODOPT, ['ardoise', 'Ardoise'], ['feutre', 'Feutre vert'], ['nuit', 'Nuit bleue']]),
             fleches: check('showArrow', 'Flèches (dernier coup / meilleur coup)') + color('arrLast', 'Dernier coup joué') + color('arrBest', 'Meilleur coup') + `<label style="${ROW}">Épaisseur<input type="range" data-k="arrW" min="50" max="170" step="5" style="margin-left:12px;width:120px"></label>`,
-            scene: '<div style="font-size:12px;margin-bottom:6px">Choisissez une scène 3D (ou « Damier 2D »).</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">' + BoardUI.SCENE_ORDER.map(k => `<button data-scene="${k}" style="padding:8px 6px;cursor:pointer">${k === '2d' ? 'Damier 2D' : BoardUI.SCENES[k].name}</button>`).join('') + '</div>' + '<div style="font-size:12px;margin:10px 0 4px">Inclinaison du damier</div><div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px"><button data-tilt="0" style="padding:8px 4px;cursor:pointer">Presque à plat</button><button data-tilt="1" style="padding:8px 4px;cursor:pointer">Moyenne</button><button data-tilt="2" style="padding:8px 4px;cursor:pointer">Forte</button></div>',
+            scene: '<div style="font-size:12px;margin-bottom:6px">Choisissez une scène 3D (ou « Damier 2D »).</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">' + BoardUI.SCENE_ORDER.map(k => `<button data-scene="${k}" style="padding:8px 6px;cursor:pointer">${k === '2d' ? 'Damier 2D' : BoardUI.SCENES[k].name}</button>`).join('') + '</div>' + '<div style="font-size:12px;margin:10px 0 4px">Inclinaison du damier</div><div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px"><button data-tilt="0" style="padding:8px 4px;cursor:pointer">Presque à plat</button><button data-tilt="1" style="padding:8px 4px;cursor:pointer">Moyenne</button><button data-tilt="2" style="padding:8px 4px;cursor:pointer">Forte</button></div>' + '<div style="font-size:12px;margin:10px 0 4px">Couleurs des cases</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:6px"><button data-sq="mine" style="padding:8px 4px;cursor:pointer">Mes couleurs</button><button data-sq="scene" style="padding:8px 4px;cursor:pointer">Celles de la scène</button></div>',
             affich: `<label style="${ROW}">Taille du damier<input type="range" data-k="boardSize" min="300" max="1000" step="10" style="margin-left:12px;width:120px"></label>` + check('focusMode', 'Grand damier (masque les panneaux)')
         };
         let html = '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px">' + tabs.map(([k, l]) => `<button data-tab="${k}" style="padding:5px 8px;cursor:pointer;border:1px solid #aaa;border-radius:6px;background:#eee;color:#222">${l}</button>`).join('') + '</div>';
@@ -1175,6 +1176,7 @@ export class BoardUI {
         });
         panel.addEventListener('click', (e) => {
             const t = e.target.closest('[data-tab]'); if (t) { showTab(t.dataset.tab); return; }
+            const sq3 = e.target.closest('[data-sq]'); if (sq3) { this.setSceneSq(sq3.dataset.sq); return; }
             const tl3 = e.target.closest('[data-tilt]'); if (tl3) { this.setTilt(parseInt(tl3.dataset.tilt)); return; }
             const sc3 = e.target.closest('[data-scene]'); if (sc3) { this.setScene(sc3.dataset.scene); return; }
             const sk = e.target.closest('[data-skin]');
