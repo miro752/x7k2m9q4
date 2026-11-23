@@ -1257,3 +1257,16 @@ body.focus-board .app-header, body.match-play .app-tag { }
 #mate-overlay{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font:900 clamp(60px,16vw,140px)/1 Arial,sans-serif;color:rgba(255,255,255,.38);text-shadow:0 0 12px rgba(0,0,0,.35);pointer-events:none;z-index:5;display:none;letter-spacing:-2px}
 #mate-overlay.lose{color:rgba(255,120,120,.38)}
 .think-note{font-size:.8em;opacity:.8}
+
+/* paysage sur téléphone : boutons à gauche, damier entier à droite */
+@media (orientation: landscape) and (max-height: 560px) and (max-width: 1000px) {
+    .main-content { grid-template-columns: 150px minmax(0, 1fr) !important; column-gap: .5rem; }
+    .game-toolbar { grid-column: 1 !important; grid-row: 1 / span 8 !important; flex-direction: column !important; flex-wrap: nowrap !important; gap: .25rem !important; align-self: start; }
+    .game-toolbar .btn { width: 100% !important; padding: .3rem .4rem !important; font-size: .78rem !important; flex: 0 0 auto !important; }
+    #match-toolbar { grid-column: 1 !important; }
+    .board-container { grid-column: 2 !important; grid-row: 1 !important; padding: 4px !important; }
+    .opening-name, .status-text, .search-info, .ext-panel, .controls-section { grid-column: 2 !important; }
+    .app-header { padding: 2px 10px; }
+    .emblem { width: 28px; height: 28px; }
+    .wordmark { font-size: 1.2rem; }
+}

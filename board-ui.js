@@ -189,6 +189,15 @@ export class BoardUI {
         let size = this.focusMode ? avail : Math.min(this.boardSize, avail);
         if (this.focusMode && wide) size = Math.min(size, vh - 150);
         if (!wide && this.focusMode) size = Math.min(size, Math.max(vh - 260, 260));
+        // téléphone / petite tablette tenus en paysage : tout le damier doit tenir en hauteur
+        const land = !wide && vw > vh && vh <= 560;
+        document.body.classList.toggle('land-small', land);
+        if (land) {
+            const hd = document.querySelector('.app-header'); const hh = hd ? hd.offsetHeight : 50;
+            const a2 = vw - 160 - 34 - frame;
+            size = Math.min(a2, vh - hh - 26 - (frame > 30 ? 0 : 0));
+            size = Math.max(160, Math.floor(size));
+        } else
         size = Math.max(240, Math.floor(size));
         document.documentElement.style.setProperty('--bs', size + 'px');
         c.style.width = size + 'px'; c.style.height = size + 'px'; c.style.maxWidth = 'none';
