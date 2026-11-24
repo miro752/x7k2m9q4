@@ -1607,6 +1607,54 @@ function setupBook() {
             } catch (e) { setLearnStatus('Fichier de livre non valide.'); }
         });
     }
+    // import de parties PDN (ex. Aurora) : seuls les coups du camp GAGNANT sont ajoutes
+    if ($('book-pdn') && $('book-pdn-file')) {
+        $('book-pdn').addEventListener('click', () => $('book-pdn-file').click());
+        $('book-pdn-file').addEventListener('change', async () => {
+            const files = Array.from($('book-pdn-file').files || []); $('book-pdn-file').value = ''; if (!files.length) return;
+            const eng = gameState.engine;
+            const maxPly = parseInt($('book-plies').value) || 16;
+            try {
+                let text = ''; for (const f of files) text += '\n' + await f.text();
+                const games = parsePDN(text);
+                if (!games.length) { setLearnStatus('Aucune partie lisible dans ce fichier PDN.'); return; }
+                const bk = bookLoad();
+                let used = 0, skipped = 0, bad = 0, add = 0; const wins = { w: 0, b: 0 };
+                for (let gi = 0; gi < games.length; gi++) {
+                    const g = games[gi];
+                    const res = (g.tags.Result || g.res || '').trim();
+                    const win = (res === '1-0' || res === '2-0') ? 'w' : (res === '0-1' || res === '0-2') ? 'b' : (g.res === '1-0' || g.res === '2-0') ? 'w' : (g.res === '0-1' || g.res === '0-2') ? 'b' : null;
+                    if (!win) { skipped++; continue; }
+                    if (gi % 10 === 0) { setLearnStatus(`Import PDN : partie ${gi + 1} / ${games.length}…`); await new Promise(r => setTimeout(r, 0)); }
+                    try {
+                        let board;
+                        const st = g.tags.FEN ? parseFen(g.tags.FEN) : null;
+                        if (st) {
+                            const pc = x => { let n = 0; x >>>= 0; while (x) { n += x & 1; x >>>= 1; } return n; };
+                            board = { white: st.white, black: st.black, kings: st.kings, whiteToMove: st.whiteToMove, pieceCount: pc(st.white) + pc(st.black), nReversible: 0 };
+                        } else board = await eng.getInitialBoard();
+                        let ok = 0;
+                        for (let i = 0; i < g.moves.length && i < maxPly; i++) {
+                            const legal = await eng.getLegalMoves(board);
+                            const parsed = await eng.parseMove(board, g.moves[i]);
+                            const mv = parsed && legal.find(m => m.from_xor_to === parsed.from_xor_to && m.captures === parsed.captures);
+                            if (!mv) break;
+                            if ((board.whiteToMove ? 'w' : 'b') === win) {
+                                const key = bookKey(board), l = bk[key] || [];
+                                if (!l.includes(mv.notation)) { l.push(mv.notation); add++; }
+                                bk[key] = l;
+                            }
+                            board = await eng.makeMove(board, mv);
+                            ok++;
+                        }
+                        if (ok > 0) { used++; wins[win]++; } else bad++;
+                    } catch (e) { bad++; }
+                }
+                bookSave(bk); refreshBook();
+                setLearnStatus(`Import PDN terminé : ${used} partie(s) gagnante(s) utilisée(s) (${wins.w} gagnées par les Blancs, ${wins.b} par les Noirs), ${add} coup(s) ajouté(s), ${skipped} partie(s) nulle(s) ou sans résultat ignorée(s)` + (bad ? `, ${bad} illisible(s)` : '') + `. Le livre contient ${bookCount()} position(s).`);
+            } catch (e) { console.error(e); setLearnStatus('Impossible de lire ce fichier PDN.'); }
+        });
+    }
     // le moteur joue d'abord le livre personnel
     const prev = turnController.errorMemoryHook;
     const chk = $('chk-use-mybook');
@@ -2560,15 +2608,16 @@ function parsePDN(text) {
         ch.replace(/\[(\w+)\s+"([^"]*)"\]/g, (_, k, v) => { tags[k] = v; return ''; });
         let mt = ch.replace(/\[[^\]]*\]/g, ' ').replace(/\{[^}]*\}/g, ' ').replace(/\([^)]*\)/g, ' ').replace(/;[^\n]*/g, ' ');
         const moves = [];
+        let resTok = '';
         for (let tok of mt.split(/\s+/)) {
             if (!tok) continue;
-            if (/^(1-0|0-1|2-0|0-2|1\/2-1\/2|½-½|\*)$/.test(tok)) continue;
+            if (/^(1-0|0-1|2-0|0-2|1\/2-1\/2|½-½|\*)$/.test(tok)) { resTok = tok; continue; }
             tok = tok.replace(/^\d+\.(\.\.)?/, '').replace(/^\.\.+/, '');
             if (!tok) continue;
             tok = tok.replace(/[+#!?]+$/g, '').replace(/\b0(\d)/g, '$1').replace(/[:]/g, 'x');
             if (/^\d+([-x]\d+)+$/.test(tok)) moves.push(tok);
         }
-        if (moves.length) games.push({ tags, moves });
+        if (moves.length) games.push({ tags, moves, res: resTok });
     }
     return games;
 }
